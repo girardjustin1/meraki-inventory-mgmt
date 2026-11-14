@@ -7,12 +7,20 @@
  *      invoked, so no keyless development instance is created either.
  *   2. With Clerk: lets public paths through, and sends everyone else who is not signed in
  *      to the sign-in page (API requests get a 401 JSON response).
- *   3. PIN lock: a signed-in request without a valid `pin_ok` cookie is sent to /lock (API
+ *   3. Invited? A signed-in person with no active profile was never invited (or has had
+ *      their access removed). They are sent to /invite/required (API requests get 403
+ *      `no_profile`). Skipped when Supabase is not configured.
+ *   4. PIN lock: a signed-in request without a valid `pin_ok` cookie is sent to /lock (API
  *      requests get 423). A valid cookie is re-issued with a fresh expiry, which is what
  *      makes the timeout an idle timeout.
  *
- * Public paths: the sign-in page, /manifest.webmanifest, /api/cron/* (those routes
- * authenticate with CRON_SECRET themselves) and static assets (excluded by the matcher).
+ * Public paths: the sign-in page, /invite/* (the accept screen and /invite/required: the
+ * person has no account or no access yet), /api/invites/preview (answers only to an invite
+ * token), /manifest.webmanifest, /api/cron/* (those routes authenticate with CRON_SECRET
+ * themselves) and static assets (excluded by the matcher).
+ *
+ * /api/invites/accept needs a Clerk session but neither a profile nor a PIN: it is the call
+ * that creates the profile.
  *
  * IMPORTANT: this is the early redirect, not the guarantee. Clerk's guidance since v7 is to
  * check auth next to the data, and `createRouteMatcher` is deprecated for that reason: path
@@ -26,12 +34,20 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 import { type NextFetchEvent, type NextRequest, NextResponse } from "next/server";
 import { env, isConfigured } from "~/lib/env";
 import { PIN_COOKIE_NAME, pinCookieOptions, pinCookieSecret, signPinCookie, verifyPinCookie } from "~/lib/pin-cookie";
+import { hasActiveProfile } from "~/lib/profile";
 
 const matches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 
+/** Where a signed-in person with no profile is sent. Under /invite, so it is public. */
+const NOT_INVITED_PATH = "/invite/required";
+
 /** Reachable without a Clerk session. */
-const PUBLIC_PREFIXES = ["/sign-in", "/api/cron", ...(env.clerkSignInUrl?.startsWith("/") ? [env.clerkSignInUrl] : [])];
+const PUBLIC_PREFIXES = ["/sign-in", "/invite", "/api/invites/preview", "/api/cron", ...(env.clerkSignInUrl?.startsWith("/") ? [env.clerkSignInUrl] : [])];
 const isPublicPath = (pathname: string) => pathname === "/manifest.webmanifest" || PUBLIC_PREFIXES.some((p) => matches(pathname, p));
+
+/** Reachable with a Clerk session alone: no profile and no PIN needed. This call is what creates the profile. */
+const SESSION_ONLY_PREFIXES = ["/api/invites/accept"];
+const isSessionOnly = (pathname: string) => SESSION_ONLY_PREFIXES.some((p) => matches(pathname, p));
 
 /** Reachable with a Clerk session but without the PIN: the lock screen and the API behind it. */
 const PIN_EXEMPT_PREFIXES = ["/lock", "/api/pin"];
@@ -53,8 +69,26 @@ const clerkHandler = isConfigured.clerk
               // ---- signed in? ----------------------------------------------------------
               const { userId, sessionId, redirectToSignIn } = await auth();
               if (!userId || !sessionId) {
-                  if (isApiPath(pathname)) return NextResponse.json({ error: "not_signed_in" }, { status: 401, headers: NO_STORE });
+                  if (isApiPath(pathname)) return NextResponse.json({ ok: false, error: "not_signed_in" }, { status: 401, headers: NO_STORE });
                   return redirectToSignIn({ returnBackUrl: request.url });
+              }
+
+              if (isSessionOnly(pathname)) return NextResponse.next();
+
+              // ---- invited? ------------------------------------------------------------
+              // Clerk's sign-up is open, so being signed in proves only that someone has a
+              // Google account. Access is having an active profile, and profiles come from
+              // accepting an invite. `null` means the answer is not available (Supabase not
+              // configured, or the lookup failed): the request goes on, because this is the
+              // early redirect and the database refuses a person with no profile regardless.
+              if ((await hasActiveProfile(userId)) === false) {
+                  if (isApiPath(pathname)) {
+                      return NextResponse.json({ ok: false, error: "no_profile", message: "You have not been invited yet, or your access was removed." }, { status: 403, headers: NO_STORE });
+                  }
+                  const required = request.nextUrl.clone();
+                  required.pathname = NOT_INVITED_PATH;
+                  required.search = "";
+                  return NextResponse.redirect(required);
               }
 
               // ---- PIN lock ------------------------------------------------------------
@@ -74,7 +108,7 @@ const clerkHandler = isConfigured.clerk
               const subject = { userId, sessionId };
               const unlocked = await verifyPinCookie(request.cookies.get(PIN_COOKIE_NAME)?.value, subject, secret);
               if (!unlocked) {
-                  if (isApiPath(pathname)) return NextResponse.json({ error: "pin_locked" }, { status: 423, headers: NO_STORE });
+                  if (isApiPath(pathname)) return NextResponse.json({ ok: false, error: "pin_locked" }, { status: 423, headers: NO_STORE });
                   const lock = request.nextUrl.clone();
                   lock.pathname = "/lock";
                   lock.search = "";

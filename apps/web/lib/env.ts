@@ -77,6 +77,13 @@ export const env = {
     get emailRedirectTo() {
         return clean(process.env.EMAIL_REDIRECT_TO);
     },
+    /**
+     * Delete the Clerk account of someone who signed in but was never invited, when they
+     * leave the "not invited" page. Off unless set to "true". See lib/profile.ts.
+     */
+    get deleteUninvitedUsers() {
+        return clean(process.env.CLERK_DELETE_UNINVITED_USERS)?.toLowerCase() === "true";
+    },
     get isProduction() {
         return process.env.NODE_ENV === "production";
     },

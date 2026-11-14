@@ -5,7 +5,7 @@
  * Used by cron routes only (no user is present, so there is no Clerk token to apply RLS
  * with). Screens that act for a user should query through lib/supabase/server.ts instead.
  *
- * STATUS: written against the schema in supabase/migrations/0001_init.sql and type-checked,
+ * STATUS: written against the schema in supabase/migrations (0001 and 0002) and type-checked,
  * but not yet run against a live project. Treat the first run as a test: call
  *   GET /api/cron/digest?period=weekly&dryRun=1
  * and read the output before letting the schedule send anything.
@@ -90,7 +90,7 @@ export const loadSupabaseState = async (): Promise<AppState> => {
         ),
         readAll<FlagRow>("flags", (a, b) => db.from("flags").select("*").in("status", ["open", "reviewing"]).order("id").range(a, b)),
         readAll<ProfileRow>("profiles", (a, b) =>
-            db.from("profiles").select("id, email, name, role, has_pin, last_active_at, profile_locations(location_id)").eq("active", true).order("id").range(a, b),
+            db.from("profiles").select("id, email, name, role, access_level, has_pin, last_active_at, profile_locations(location_id)").eq("active", true).order("id").range(a, b),
         ),
         readAll<NotificationRuleRow>("notification rules", (a, b) => db.from("notification_rules").select("id, label, description, channel, roles, enabled").order("id").range(a, b)),
     ]);

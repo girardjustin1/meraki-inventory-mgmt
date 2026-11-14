@@ -10,10 +10,13 @@
  * an offset. Timestamps are normalised to UTC `...Z` form because the engine slices them.
  */
 import type {
+    AccessLevel,
     CountLine,
     CountSession,
     Flag,
     FlagEvidence,
+    Invite,
+    InviteStatus,
     Item,
     Location,
     LocationId,
@@ -203,9 +206,28 @@ export interface ProfileRow {
     email: string;
     name: string;
     role: string;
+    /** "admin" | "user". Added by supabase/migrations/0002_access_and_invites.sql. */
+    access_level: string;
     has_pin: boolean;
     last_active_at: string | null;
     profile_locations: { location_id: string }[] | null;
+}
+/** From the `invites_with_status` view. There is no token column: only its hash is stored, and that is not readable. */
+export interface InviteRow {
+    id: string;
+    email: string | null;
+    name: string | null;
+    role: string;
+    access_level: string;
+    location_ids: string[];
+    invited_by: string | null;
+    note: string | null;
+    created_at: string;
+    expires_at: string;
+    accepted_at: string | null;
+    accepted_by: string | null;
+    revoked_at: string | null;
+    status: InviteStatus;
 }
 export interface NotificationRuleRow {
     id: string;
@@ -365,14 +387,36 @@ export const toFlag = (r: FlagRow): Flag => ({
     fromRealData: r.from_real_data,
 });
 
+/** Owners are always admins; the database enforces it and this mirrors it. */
+export const toAccess = (accessLevel: string | null | undefined, role: string): AccessLevel => (role === "owner" || accessLevel === "admin" ? "admin" : "user");
+
 export const toUser = (r: ProfileRow): User => ({
     id: r.id,
     name: r.name,
     role: kebab<Role>(r.role),
+    access: toAccess(r.access_level, r.role),
     locations: (r.profile_locations ?? []).map((l) => l.location_id as LocationId),
     email: r.email,
     hasPin: r.has_pin,
     lastActiveAt: iso(r.last_active_at),
+});
+
+/** The domain `Invite` minus its token, which the database cannot give back. */
+export const toInvite = (r: InviteRow): Omit<Invite, "token"> => ({
+    id: r.id,
+    email: opt(r.email),
+    name: opt(r.name),
+    role: kebab<Role>(r.role),
+    access: toAccess(r.access_level, r.role),
+    locations: r.location_ids as LocationId[],
+    invitedBy: r.invited_by ?? "",
+    createdAt: new Date(r.created_at).toISOString(),
+    expiresAt: new Date(r.expires_at).toISOString(),
+    status: r.status,
+    acceptedAt: iso(r.accepted_at),
+    acceptedBy: opt(r.accepted_by),
+    revokedAt: iso(r.revoked_at),
+    note: opt(r.note),
 });
 
 export const toNotificationRule = (r: NotificationRuleRow): NotificationRule => ({

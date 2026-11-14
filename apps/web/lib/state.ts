@@ -14,6 +14,7 @@
  * screen or route needs something that is not here, add it to AppState and to BOTH loaders.
  */
 import type { CountSession, Flag, Forecast, Item, Location, LocationId, NotificationRule, PurchaseOrder, StockLevel, StockMovement, User, Vendor } from "@/data/types";
+import { isAdmin } from "@/engine/permissions";
 import { isConfigured } from "~/lib/env";
 
 export interface AppState {
@@ -72,14 +73,14 @@ const loadPrototypeState = async (): Promise<AppState> => {
 
 /**
  * Email addresses for a notification rule at one location: active staff whose role the rule
- * names and who work there (owners are attached to every location).
+ * names and who work there. Admins are attached to every location (engine/permissions.ts).
  * Returns [] when the rule is missing or switched off.
  */
 export const recipientsFor = (state: AppState, ruleId: string, locationId: LocationId): string[] => {
     const rule = state.notificationRules.find((r) => r.id === ruleId);
     if (!rule || !rule.enabled || rule.channel !== "email") return [];
     return state.users
-        .filter((u) => rule.roles.includes(u.role) && (u.role === "owner" || u.locations.includes(locationId)))
+        .filter((u) => rule.roles.includes(u.role) && (isAdmin(u) || u.locations.includes(locationId)))
         .map((u) => u.email)
         .filter(Boolean);
 };

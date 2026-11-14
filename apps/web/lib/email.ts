@@ -3,6 +3,7 @@
  *
  *   sendDigest()      the weekly / monthly digest for one location
  *   sendFlagAlert()   one high-severity flag
+ *   sendInvite()      an invitation to join, for invites bound to an email address
  *   render*Html()     the same templates as HTML, for previews (?dryRun=1)
  *
  * When Resend is not configured (no RESEND_API_KEY or no RESEND_FROM) nothing is sent: the
@@ -17,15 +18,16 @@
 import { createElement } from "react";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
-import type { Digest, Flag } from "@/data/types";
+import type { AccessLevel, Digest, Flag, Role } from "@/data/types";
 import { digestSubject } from "@/engine/digest";
 import { DigestEmail } from "~/emails/digest-email";
 import { FlagAlertEmail, flagAlertSubject } from "~/emails/flag-alert-email";
+import { InviteEmail, inviteSubject } from "~/emails/invite-email";
 import { appUrl, env, isConfigured } from "~/lib/env";
 
 export type SendResult =
     | { status: "sent"; id: string; to: string[] }
-    | { status: "skipped"; reason: "not_configured" | "no_recipients"; to: string[] }
+    | { status: "skipped"; reason: "not_configured" | "no_recipients" | "prototype_mode"; to: string[] }
     | { status: "failed"; error: string; to: string[] };
 
 let client: Resend | null = null;
@@ -129,3 +131,66 @@ export const sendFlagAlert = (input: FlagAlertInput & { to: string[] }): Promise
         ],
         idempotencyKey: `flag/${input.flag.id}`.slice(0, 256),
     });
+
+// ------------------------------------------------------------------------------------ invite
+
+export interface InviteEmailInput {
+    /** The address the invite is bound to. */
+    email: string;
+    /** The full invite link, token included. Never logged. */
+    inviteUrl: string;
+    inviterName: string;
+    inviteeName?: string;
+    role: Role;
+    access: AccessLevel;
+    locationNames: string[];
+    note?: string;
+    /** ISO timestamp. */
+    expiresAt: string;
+    /** True when the invite lives in the prototype's in-memory sample data. */
+    sampleData?: boolean;
+}
+
+const inviteElement = (input: InviteEmailInput) =>
+    createElement(InviteEmail, {
+        inviteUrl: input.inviteUrl,
+        inviterName: input.inviterName,
+        inviteeName: input.inviteeName,
+        email: input.email,
+        role: input.role,
+        access: input.access,
+        locationNames: input.locationNames,
+        note: input.note,
+        expiresAt: input.expiresAt,
+        baseUrl: baseUrl(),
+        logoUrl: env.emailLogoUrl,
+        sampleData: input.sampleData,
+    });
+
+export const renderInviteHtml = (input: InviteEmailInput): Promise<string> => render(inviteElement(input));
+
+/**
+ * Emails an invitation. `idempotencyKey` should identify the token being sent (lib/invites.ts
+ * passes a slice of its hash), so a retried request does not send the same link twice but a
+ * resend, which has a new token, does go out.
+ *
+ * Same guard as the digests: an invite that exists only in the prototype's sample data is
+ * never emailed to a real inbox, because its link leads nowhere real. With EMAIL_REDIRECT_TO
+ * set it goes to that one address, which is how the email is tested end to end.
+ */
+export const sendInvite = (input: InviteEmailInput & { idempotencyKey?: string }): Promise<SendResult> => {
+    if (input.sampleData && !env.emailRedirectTo) {
+        console.info("[email] Prototype mode: the invite email was not sent. Set EMAIL_REDIRECT_TO to send yourself a test.");
+        return Promise.resolve({ status: "skipped", reason: "prototype_mode", to: [] });
+    }
+    return send({
+        to: [input.email],
+        subject: inviteSubject(input.inviterName),
+        react: inviteElement(input),
+        tags: [
+            { name: "type", value: "invite" },
+            { name: "access", value: input.access },
+        ],
+        ...(input.idempotencyKey ? { idempotencyKey: `invite/${input.idempotencyKey}`.slice(0, 256) } : {}),
+    });
+};

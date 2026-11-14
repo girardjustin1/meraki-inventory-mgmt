@@ -1,7 +1,8 @@
 import { ReceiveScreen } from "@/screens/receive/receive-screen";
+import { type SearchParams, text, viewLocation, viewer } from "~/lib/view-params";
 
-/** Open orders to receive. `?order=<id>` opens one order directly. */
-export default async function Page({ searchParams }: { searchParams: Promise<{ order?: string }> }) {
-    const { order } = await searchParams;
-    return <ReceiveScreen orderId={order} />;
+/** Open orders to receive. Deep link: /receive?order=<id> opens one order. */
+export default async function Page({ searchParams }: { searchParams: SearchParams }) {
+    const params = await searchParams;
+    return <ReceiveScreen user={await viewer()} location={await viewLocation(params)} orderId={text(params.order, 160)} />;
 }

@@ -23,6 +23,9 @@ Useful previews, no keys needed:
 
 - Digest email: <http://localhost:3000/api/cron/digest?period=weekly&dryRun=1>
 - Flag scan: <http://localhost:3000/api/cron/flags?dryRun=1>
+- Invites, as an admin: `curl -H "x-demo-user: u-owner" http://localhost:3000/api/invites`
+
+The demo user is the Lynnfield manager, who has User access. Admin-only routes rightly refuse them. To act as someone else in prototype mode, send the header `x-demo-user` or set a `demo_user` cookie with an id from `users` in `packages/ui/data/inventory.ts` (`u-owner` is the admin). Both are ignored as soon as Clerk keys are set.
 
 ## Setup, in order
 
@@ -31,7 +34,7 @@ Do these in order. Each step needs something from the one before.
 ### 1. Supabase
 
 1. Create a project. Region: `us-east-1` (N. Virginia) is closest to the salons.
-2. Apply `supabase/migrations/0001_init.sql`, then `supabase/seed.sql`, then the generated `supabase/seed-catalog.sql`. The commands are in [`supabase/README.md`](../../supabase/README.md).
+2. Apply `supabase/migrations/0001_init.sql` and `0002_access_and_invites.sql`, then `supabase/seed.sql`, then the generated `supabase/seed-catalog.sql`. The commands are in [`supabase/README.md`](../../supabase/README.md).
 3. From **Project Settings > API keys**, copy the project URL, the publishable key and a secret key into `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`.
 4. Under **Authentication > Sign In / Providers**, turn off email sign-in. Identity comes from Clerk only.
 
@@ -41,19 +44,25 @@ The Clerk connection (step 2.6 below) needs the Clerk application to exist first
 
 1. Create an application. For sign-in options choose **Google** and nothing else: turn off email address, phone, username and password.
 2. **Google credentials.** A development instance uses Clerk's shared Google credentials and works immediately. A production instance needs your own: create an OAuth client in Google Cloud Console, add the redirect URI Clerk shows you, and paste the client id and secret into Clerk's Google connection.
-3. **Restrict who can sign up.** Open **User & Authentication > Access mode** (the page may be labelled Restrictions) and choose **Invite-only**. Only people you invite can create an account; a stranger with a Google account gets nowhere. The alternative is an allowlist of your email domain, which Clerk charges for on production instances.
-4. **Invite staff with their role.** On **Users > Invitations**, invite each person by the Google address they will sign in with, and set the invitation's public metadata:
+3. **Leave sign-up open.** Open **User & Authentication > Restrictions** (the page may be labelled Access mode) and keep the sign-up mode on **Open**. Do not choose Invite-only and do not switch on the allowlist: either would stop invited people signing in with Google. Who may use the app is decided by the app's own invites, not by Clerk. A stranger who signs in with Google gets a Clerk account and nothing else; the reasoning is in [`docs/architecture.md`](../../docs/architecture.md), "Clerk and sign-up".
+4. **Put the email address in the session token.** Open **Sessions > Customize session token**, paste this into the claims editor and save:
 
    ```json
-   { "role": "front_desk", "locations": ["lynnfield"] }
+   {
+     "email": "{{user.primary_email_address}}",
+     "email_verified": "{{user.email_verified}}",
+     "name": "{{user.full_name}}"
+   }
    ```
 
-   Roles: `owner`, `manager`, `front_desk`, `technician`. Locations: `lynnfield`, `newburyport`. Owners need no locations. On first sign-in the app creates the person's profile from this (`lib/profile.ts`). After that, roles and locations are changed in the app, and Clerk's metadata is not read again. Someone who signs in without metadata is created inactive and sees nothing until an owner activates them. The first owner is created with one SQL statement: see `supabase/README.md`.
+   Accepting an invite reads the address from the token. Without this, every invite fails with `email_claim_missing` (nothing is written, and the server log says what to fix). Do not invite people from the Clerk dashboard: the app does not read Clerk invitations or Clerk metadata. People are invited in the app; see "Inviting people". The first owner is created with one SQL statement: see `supabase/README.md`.
 5. **Session lifetime.** On the **Sessions** page the default maximum lifetime is 7 days and the inactivity timeout is off. For shared salon devices a shorter inactivity timeout (for example 12 hours) is better. Clerk charges for custom session lifetimes on production instances. The PIN lock covers the short-term case either way.
 6. **Connect Clerk to Supabase.** Open [dashboard.clerk.com/setup/supabase](https://dashboard.clerk.com/setup/supabase), activate the integration and copy the Clerk domain. In Supabase, go to **Authentication > Sign In / Providers > Third-Party Auth > Add provider > Clerk** and paste it. This is the native integration; it does not use a JWT template.
 7. Copy the keys from **API keys** into `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`. Keep `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in` if the app has its own sign-in page at that path; remove it to use Clerk's hosted sign-in page.
 
 Development and production are separate Clerk instances with separate keys, users and domains. Repeat steps 3 to 6 on the production instance.
+
+Optional: set `CLERK_DELETE_UNINVITED_USERS=true` to have the Clerk account of someone who was never invited deleted when they leave the "not invited" page. It never touches anyone who has a profile.
 
 ### 3. Resend
 
@@ -70,7 +79,7 @@ Before go-live, set `EMAIL_REDIRECT_TO` to your own address. Every email then go
    - `CRON_SECRET`: Vercel sends it to the cron routes as `Authorization: Bearer ...`.
    - `PIN_COOKIE_SECRET`: signs the PIN cookie. If it is missing in production the PIN lock is off.
    - `PIN_PEPPER` (recommended): see "PIN lock" below.
-   - `NEXT_PUBLIC_APP_URL`: the public address, used for links in emails.
+   - `NEXT_PUBLIC_APP_URL`: the public address, used for links in emails, including invite links. Set it before inviting anyone.
 3. Deploy. The cron jobs in `vercel.json` are registered on the production deployment only; preview deployments do not run them.
 
 | Job | Path | Schedule (UTC) | Eastern time |
@@ -94,9 +103,13 @@ Things to know about Vercel cron:
 | `lib/env.ts` | Typed environment access and `isConfigured.{clerk,supabase,resend}`. |
 | `proxy.ts` | Next.js 16 request proxy (formerly `middleware.ts`). Sign-in redirect and PIN lock. A pass-through with no Clerk keys. |
 | `app/providers.tsx` | Wraps the app in `ClerkProvider` only when Clerk is configured. |
-| `lib/auth.ts` | `requireUser()`: the auth check every route handler and server action must make. |
+| `lib/auth.ts` | `requireUser()`: who is calling. |
+| `lib/permissions.ts` | `requirePermission()`: what they may do. The check every route handler and server action that touches data must make. Built on `packages/ui/engine/permissions.ts`. |
+| `lib/profile.ts` | A person's role, access level and locations. Profiles are created only by accepting an invite. |
+| `lib/invites.ts`, `app/api/invites/*` | Invites: create, list, revoke, resend, preview, accept. |
+| `lib/http.ts` | JSON, error and same-origin conventions shared by the app's API routes. |
 | `lib/supabase/server.ts` | Supabase client acting as the signed-in user (Clerk token, row-level security applies). |
-| `lib/supabase/admin.ts` | Service-role client. Cron routes, the PIN route and profile creation only. |
+| `lib/supabase/admin.ts` | Service-role client. Cron routes, the PIN route, reading the caller's own profile and the invite preview only. |
 | `lib/supabase/mappers.ts` | Database rows to the domain types in `packages/ui/data/types.ts`, and back. |
 | `lib/state.ts` | `loadState()`: the seam between sample data and Supabase. |
 | `lib/pin.ts`, `lib/pin-cookie.ts`, `app/api/pin/route.ts` | PIN lock. |
@@ -108,11 +121,53 @@ Things to know about Vercel cron:
 
 `proxy.ts` redirects signed-out visitors before a page renders, but it is the early redirect and not the guarantee. Clerk's guidance since v7 is to check auth next to the data (its `createRouteMatcher` helper is deprecated for that reason). So:
 
-- Every route handler and server action that reads or changes data starts with `const user = await requireUser(); if (user instanceof Response) return user;`.
-- Data access for a user goes through `createServerSupabase()`, so Postgres applies row-level security as that person. The database is the last line of defence and does not depend on the proxy.
-- Paths the proxy treats as public: `/sign-in`, `/manifest.webmanifest`, `/api/cron/*` (which check `CRON_SECRET` themselves) and static files.
+- Every route handler and server action that reads or changes data starts with a permission check next to the data:
 
-Pages the proxy sends people to, which the app needs to provide: `/sign-in` (Clerk's `<SignIn />`, at `app/sign-in/[[...sign-in]]/page.tsx`) and `/lock` (the PIN screen).
+  ```ts
+  const actor = await requirePermission("orders.create", locationId);
+  if (actor instanceof Response) return actor; // 401 not_signed_in, 403 no_profile or 403 forbidden
+  ```
+
+  `requireUser()` alone only proves that someone is signed in with Google. It does not prove they were invited.
+- Data access for a user goes through `createServerSupabase()`, so Postgres applies row-level security as that person. The database is the last line of defence and does not depend on the proxy.
+- Paths the proxy treats as public: `/sign-in`, `/invite/*`, `/api/invites/preview`, `/manifest.webmanifest`, `/api/cron/*` (which check `CRON_SECRET` themselves) and static files.
+- A signed-in person with no active profile was never invited, or has had their access removed. The proxy sends them to `/invite/required` (API calls get `403 no_profile`). `/api/invites/accept` is the exception: it needs a session but no profile and no PIN, because it is the call that creates the profile. The proxy remembers a "yes" for a minute, so access that has just been removed can linger in the proxy that long; the database does not wait.
+
+Pages the proxy sends people to, which the app needs to provide: `/sign-in` (Clerk's `<SignIn />`, at `app/sign-in/[[...sign-in]]/page.tsx`), `/lock` (the PIN screen) and `/invite/required` ("you need an invite").
+
+## Inviting people
+
+Nobody signs up. An admin invites them, and the invite decides their role, access level and locations. The API routes below are documented at the top of each file in `app/api/invites/`.
+
+**What an admin does**
+
+1. Opens **Settings > Team** and chooses **Invite**.
+2. Picks the role (manager, front desk or technician), the access level (User or Admin) and the locations.
+3. Either types the person's Google address, or leaves it empty for an open link.
+   - **With an address:** the app emails the invite. Only that Google account can accept it. It lasts 7 days.
+   - **Open link:** the app shows a link once. The admin copies it and sends it to the person directly (a text message, in person). Whoever opens it first gets in, so it lasts 48 hours and cannot grant admin access.
+4. The link is shown **once**. Only a fingerprint of it is stored, so it cannot be shown again. If it is lost, **Resend** makes a new one and the old one stops working.
+
+**What the invited person sees**
+
+1. They open the link. A page shows who invited them, their role, the locations and any note. No account is needed to see it.
+2. They choose **Continue with Google** and sign in.
+3. They choose **Accept**. Their access is created at that moment.
+4. They pick a four-digit PIN and are in.
+
+If they sign in with a different Google account than the one invited, they are told so and nothing happens. If the link has expired, been used or been cancelled, the page says which, and who to ask.
+
+Someone who signs in with Google without an invite sees a page saying they need one. They cannot see anything else.
+
+**How to revoke**
+
+- **An invite that has not been used:** Settings > Team, then **Revoke** on the invite. The link stops working at once. A revoked invite stays on the list.
+- **Someone who already has access:** Settings > Team, then deactivate the person. They see nothing from the next request (the database checks on every query; the proxy may take up to a minute to send them to the "not invited" page). Their history stays in the ledger under their name. To bring them back later, invite them again; they keep the same account.
+- An admin cannot deactivate themselves, and the last admin cannot be removed.
+
+Before sending real invites, set `NEXT_PUBLIC_APP_URL` (the links in the email use it) and the session-token claims in Clerk (setup step 2.4). To test the email without reaching anyone, set `EMAIL_REDIRECT_TO`.
+
+In prototype mode the same screens work on sample invites held in the dev server's memory: they vanish on restart, and no invite email is sent.
 
 ## PIN lock
 
@@ -134,7 +189,7 @@ Protections:
 - Five wrong attempts lock the PIN for 60 seconds. The count is kept in the database and written before the PIN is checked, so parallel guesses cannot get around it.
 - `PIN_PEPPER` mixes a server-side secret into the hash. Without it, a copy of the database is enough to recover any 4-digit PIN in under a second. With it, the attacker also needs the app's environment. Changing the pepper invalidates all PINs; staff set new ones.
 - Changing a PIN requires the current PIN or a still-valid unlock.
-- A forgotten PIN: an owner clears `pin_hash` for that person (SQL editor for now), and they set a new one at next unlock.
+- A forgotten PIN: someone with database access clears `pin_hash` for that person (SQL editor for now), and they set a new one at next unlock.
 
 In prototype mode nothing is stored and the only PIN accepted is `2580`.
 

@@ -17,9 +17,10 @@
  * Prototype mode (no Supabase): nothing is stored and the only PIN accepted is 2580, so the
  * lock screen can be demoed end to end.
  */
-import { type NextRequest, NextResponse } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import { type RequestUser, requireUser } from "~/lib/auth";
 import { env, isConfigured } from "~/lib/env";
+import { isSameOrigin, json } from "~/lib/http";
 import {
     LOCKOUT_SECONDS,
     type PinAttemptState,
@@ -35,15 +36,11 @@ import {
     verifyPin,
 } from "~/lib/pin";
 import { PIN_COOKIE_NAME, pinCookieOptions, pinCookieSecret, signPinCookie, verifyPinCookie } from "~/lib/pin-cookie";
-import { ensureProfile } from "~/lib/profile";
+import { getProfile } from "~/lib/profile";
 import { getAdminSupabase } from "~/lib/supabase/admin";
 
 export const runtime = "nodejs"; // lib/pin.ts uses node:crypto scrypt
 export const dynamic = "force-dynamic";
-
-const NO_STORE = { "Cache-Control": "no-store" };
-const json = (body: Record<string, unknown>, status = 200, headers: Record<string, string> = {}) =>
-    NextResponse.json(body, { status, headers: { ...NO_STORE, ...headers } });
 
 // ------------------------------------------------------------------------------------ storage
 
@@ -83,8 +80,9 @@ const supabaseStore = (userId: string): PinStore => {
     return {
         prototype: false,
         load: async () => {
-            // Creates the profile row on first sign-in.
-            if (!(await ensureProfile(userId))) return null;
+            // No profile, or access removed: there is no PIN to check. Profiles are created
+            // only by accepting an invite (lib/invites.ts).
+            if (!(await getProfile(userId))?.active) return null;
             const { data, error } = await admin
                 .from("profiles")
                 .select("pin_hash, failed_pin_attempts, pin_locked_until")
@@ -119,17 +117,6 @@ const storeFor = (user: RequestUser): PinStore => (isConfigured.supabase && !use
 const subjectOf = (user: RequestUser) => ({ userId: user.userId, sessionId: user.sessionId ?? "prototype" });
 
 // ------------------------------------------------------------------------------------ checks
-
-/** Browsers send Origin on every cross-site POST. Refuse the ones that are not this app. */
-const isSameOrigin = (request: NextRequest): boolean => {
-    const origin = request.headers.get("origin");
-    if (!origin) return true; // same-origin GET-less clients (curl, server-to-server) send none
-    try {
-        return new URL(origin).host === (request.headers.get("x-forwarded-host") ?? request.headers.get("host"));
-    } catch {
-        return false;
-    }
-};
 
 type AttemptResult = { ok: true } | { ok: false; response: NextResponse };
 
@@ -213,7 +200,7 @@ export async function POST(request: NextRequest) {
 
     const store = storeFor(user);
     const record = await store.load();
-    if (!record) return json({ ok: false, error: "no_profile", message: "Your account has not been set up yet. Ask the owner to add you." }, 403);
+    if (!record) return json({ ok: false, error: "no_profile", message: "You have not been invited yet, or your access was removed. Ask an admin for an invite." }, 403);
 
     // ---- verify -----------------------------------------------------------------------
     if (body.action === "verify") {

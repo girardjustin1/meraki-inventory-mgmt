@@ -1,58 +1,51 @@
 /**
- * Links a Clerk user to a row in `profiles`.
+ * A Clerk user's row in `profiles`: their role, access level and locations.
  *
- * Row-level security reads a person's role and locations from `profiles` and
- * `profile_locations`. A Clerk user with no profile row passes no policy and sees nothing,
- * so the row has to exist before the app is useful to them.
+ * Row-level security reads everything it needs from `profiles` and `profile_locations`. A
+ * Clerk user with no profile row, or with `active = false`, passes no policy and sees
+ * nothing. So "can this person use the app" is exactly "do they have an active profile".
  *
- * How a profile gets its role:
- *   1. The owner invites a staff member from the Clerk dashboard (or the Clerk API) and puts
- *      their role and locations in the invitation's PUBLIC METADATA, for example
- *        { "role": "front_desk", "locations": ["lynnfield"] }
- *      Clerk copies invitation metadata onto the user when they accept.
- *   2. On the user's first request, `ensureProfile()` creates the row from that metadata.
- *   3. After that the database is the source of truth: the owner changes roles and
- *      locations in the app (Settings > Team), and Clerk metadata is not read again.
- * A user who signs in with no metadata still gets a row, as an inactive technician with no
- * locations, so the owner can see them in Settings > Team and activate them. They see
- * nothing until then. The very first owner is created with one SQL statement; see
- * supabase/README.md.
+ * HOW A PROFILE COMES TO EXIST. There is one way in, and it is not this file:
+ *   - An admin sends an invite (lib/invites.ts). The person opens the link, signs in with
+ *     Google, and the database function `accept_invite()` creates the profile from what the
+ *     invite grants, in one transaction (supabase/migrations/0002_access_and_invites.sql).
+ *   - The very first owner is created with one SQL statement; see supabase/README.md.
+ * Nothing here creates a profile, and Clerk metadata is not read. Earlier versions created a
+ * row on first sign-in from Clerk invitation metadata; that path is gone, because it made
+ * Clerk a second place where access was decided.
  *
- * Uses the service-role client: signed-in users cannot insert profiles (no INSERT policy),
- * which is what stops someone creating themselves as an owner.
+ * Reads use the service-role client and are always pointed at the caller's own row, after
+ * Clerk has said who the caller is.
  */
-import { currentUser } from "@clerk/nextjs/server";
-import { isConfigured } from "~/lib/env";
+import { clerkClient } from "@clerk/nextjs/server";
+import type { LocationId, Role, User } from "@/data/types";
+import { env, isConfigured } from "~/lib/env";
 import { getAdminSupabase } from "~/lib/supabase/admin";
+import { kebab, toAccess } from "~/lib/supabase/mappers";
 
 export type DbRole = "owner" | "manager" | "front_desk" | "technician";
+export type DbAccessLevel = "admin" | "user";
 
 export interface Profile {
     id: string;
     email: string;
     name: string;
     role: DbRole;
+    /** Owners are always "admin". */
+    access: DbAccessLevel;
     active: boolean;
     hasPin: boolean;
     locations: string[];
 }
 
-const ROLES: readonly DbRole[] = ["owner", "manager", "front_desk", "technician"];
-
-const parseRole = (value: unknown): DbRole | null => {
-    const role = typeof value === "string" ? value.trim().toLowerCase().replace(/-/g, "_") : "";
-    return (ROLES as readonly string[]).includes(role) ? (role as DbRole) : null;
-};
-
-const parseLocations = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
-
-const PROFILE_COLUMNS = "id, email, name, role, active, has_pin, profile_locations(location_id)";
+const PROFILE_COLUMNS = "id, email, name, role, access_level, active, has_pin, profile_locations(location_id)";
 
 interface ProfileRow {
     id: string;
     email: string;
     name: string;
     role: DbRole;
+    access_level: DbAccessLevel;
     active: boolean;
     has_pin: boolean;
     profile_locations: { location_id: string }[] | null;
@@ -63,56 +56,108 @@ const toProfile = (row: ProfileRow): Profile => ({
     email: row.email,
     name: row.name,
     role: row.role,
+    access: toAccess(row.access_level, row.role),
     active: row.active,
     hasPin: row.has_pin,
     locations: (row.profile_locations ?? []).map((l) => l.location_id),
 });
 
 /**
- * Returns the profile for a Clerk user, creating it on first sight.
- * Returns null in prototype mode, or when the Clerk user cannot be loaded.
+ * The profile for a Clerk user, active or not. Null when they have none (they were never
+ * invited, or have not accepted yet) and in prototype mode.
  */
-export const ensureProfile = async (userId: string): Promise<Profile | null> => {
+export const getProfile = async (userId: string): Promise<Profile | null> => {
     const admin = getAdminSupabase();
-    if (!admin || !isConfigured.clerk) return null;
+    if (!admin) return null;
+    const { data, error } = await admin.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle<ProfileRow>();
+    if (error) throw new Error(`Could not load profile: ${error.message}`);
+    return data ? toProfile(data) : null;
+};
 
-    const existing = await admin.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle<ProfileRow>();
-    if (existing.error) throw new Error(`Could not load profile: ${existing.error.message}`);
-    if (existing.data) return toProfile(existing.data);
+/** A profile in the shape the screens and engine/permissions.ts use. */
+export const toDomainUser = (profile: Profile): User => ({
+    id: profile.id,
+    name: profile.name,
+    role: kebab<Role>(profile.role),
+    access: profile.access,
+    locations: profile.locations as LocationId[],
+    email: profile.email,
+    hasPin: profile.hasPin,
+});
 
-    const user = await currentUser();
-    if (!user || user.id !== userId) return null;
-    const email = user.primaryEmailAddress?.emailAddress;
-    if (!email) return null;
+// ------------------------------------------------------------------------------------ the proxy's question
 
-    const role = parseRole(user.publicMetadata?.role);
-    const locations = parseLocations(user.publicMetadata?.locations);
+/** How long a "yes" is remembered by one server instance. A "no" is never remembered. */
+const ACTIVE_TTL_MS = 60_000;
+const activeUntil = new Map<string, number>();
 
-    // `ignoreDuplicates` makes two simultaneous first requests safe: the second insert is a no-op.
-    const created = await admin.from("profiles").upsert(
-        {
-            id: user.id,
-            email,
-            name: user.fullName ?? email.split("@")[0] ?? "",
-            role: role ?? "technician",
-            // No role in the invitation means nobody vouched for this person yet.
-            active: role !== null,
-        },
-        { onConflict: "id", ignoreDuplicates: true },
-    );
-    if (created.error) throw new Error(`Could not create profile: ${created.error.message}`);
+/**
+ * Does this Clerk user have an active profile? Asked by proxy.ts on every signed-in request.
+ *
+ *   true   yes
+ *   false  no: not invited, invite not accepted yet, or access removed
+ *   null   cannot say: Supabase is not configured, or the lookup failed
+ *
+ * A yes is cached in memory for a minute, so the usual cost is nothing. A no is not cached,
+ * which is what lets someone into the app the moment they accept an invite. The cache also
+ * means access that has just been removed can linger in the proxy for up to a minute; the
+ * database does not wait, because row-level security reads `profiles` on every query.
+ */
+export const hasActiveProfile = async (userId: string): Promise<boolean | null> => {
+    const admin = getAdminSupabase();
+    if (!admin) return null;
 
-    if (role !== null && locations.length) {
-        // Unknown location ids are dropped by the query below and not inserted.
-        const known = await admin.from("locations").select("id").in("id", locations);
-        const rows = (known.data ?? []).map((l: { id: string }) => ({ profile_id: user.id, location_id: l.id }));
-        if (rows.length) {
-            const linked = await admin.from("profile_locations").upsert(rows, { onConflict: "profile_id,location_id", ignoreDuplicates: true });
-            if (linked.error) throw new Error(`Could not assign locations: ${linked.error.message}`);
-        }
+    const now = Date.now();
+    if ((activeUntil.get(userId) ?? 0) > now) return true;
+
+    const { data, error } = await admin.from("profiles").select("id").eq("id", userId).eq("active", true).maybeSingle<{ id: string }>();
+    if (error) {
+        console.error(`[profile] could not check the profile for ${userId}: ${error.message}`);
+        return null;
     }
+    if (!data) {
+        activeUntil.delete(userId);
+        return false;
+    }
+    // Keep the map from growing without bound on a long-lived instance.
+    if (activeUntil.size > 5_000) activeUntil.clear();
+    activeUntil.set(userId, now + ACTIVE_TTL_MS);
+    return true;
+};
 
-    const fresh = await admin.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).maybeSingle<ProfileRow>();
-    if (fresh.error) throw new Error(`Could not load profile: ${fresh.error.message}`);
-    return fresh.data ? toProfile(fresh.data) : null;
+// ------------------------------------------------------------------------------------ people who were never invited
+
+export type RemovalOutcome = "deleted" | "kept_has_profile" | "disabled" | "not_configured" | "failed";
+
+/**
+ * Deletes the Clerk account of someone who signed in with Google but was never invited.
+ *
+ * Clerk's sign-up is open (docs/architecture.md, "Clerk and sign-up"), so a stranger with a
+ * Google account can create a Clerk user. They get nothing: no profile, so no data, and the
+ * proxy parks them on /invite/required. This removes the leftover account so the user list
+ * in Clerk stays equal to the people who were invited.
+ *
+ * Deliberately conservative:
+ *   - off unless CLERK_DELETE_UNINVITED_USERS=true
+ *   - never touches anyone who has a profile row, active or not. Former staff keep their
+ *     Clerk account, because their id is what ties them to the ledger.
+ *   - call it from an explicit action on /invite/required ("Sign out"), not on page load. A
+ *     person who has signed in and is about to accept their invite in another tab has no
+ *     profile yet either, and must not be deleted from under themselves.
+ *
+ * NOT VERIFIED against a live Clerk instance; `users.deleteUser` is confirmed from the
+ * installed @clerk/backend types only.
+ */
+export const removeUninvitedClerkUser = async (userId: string): Promise<RemovalOutcome> => {
+    if (!isConfigured.clerk || !isConfigured.supabase) return "not_configured";
+    if (!env.deleteUninvitedUsers) return "disabled";
+    try {
+        if (await getProfile(userId)) return "kept_has_profile";
+        const client = await clerkClient();
+        await client.users.deleteUser(userId);
+        return "deleted";
+    } catch (error) {
+        console.error(`[profile] could not remove uninvited Clerk user ${userId}`, error);
+        return "failed";
+    }
 };
