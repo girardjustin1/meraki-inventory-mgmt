@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CheckCircle, ClipboardCheck, Link01, MarkerPin01, SearchLg, XClose } from "@untitledui/icons";
+import { Camera01, CheckCircle, ClipboardCheck, Link01, MarkerPin01, SearchLg, XClose } from "@untitledui/icons";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -162,7 +162,9 @@ export const ScanScreen = ({
     const user = userProp ?? frontDesk(location);
 
     const [mode, setMode] = useState<ScanMode>(initialMode);
-    useUrlSync({ mode: mode === "lookup" ? undefined : mode });
+    // Demo codes by default so the screen can be reviewed without a camera; one tap switches to the real camera.
+    const [isLive, setIsLive] = useState(live);
+    useUrlSync({ mode: mode === "lookup" ? undefined : mode, live: isLive ? "1" : undefined });
     const [links, setLinks] = useState<Record<string, string>>({});
     const [current, setCurrent] = useState<ScanResult | null>(() => (initialCode ? lookupCode(initialCode, initialLocation) : null));
     const [entries, setEntries] = useState<ScanEntry[]>(() => {
@@ -730,11 +732,26 @@ export const ScanScreen = ({
                         <BarcodeScanner
                             onDetect={handleDetect}
                             paused={trayOpen}
-                            simulate={live || scannerState ? undefined : { codes: DEMO_CODES, label: (code) => describeCode(code, location) }}
+                            // Remount when switching source so the camera stream starts and stops cleanly.
+                            key={isLive ? "camera" : "demo"}
+                            simulate={isLive || scannerState ? undefined : { codes: DEMO_CODES, label: (code) => describeCode(code, location) }}
                             forceState={scannerState}
                             hint={mode === "lookup" ? undefined : `${modeInfo.label} mode: hold the barcode inside the frame`}
                             className="min-h-[max(42dvh,20rem)] pb-4 lg:h-[34rem] lg:min-h-0 lg:pb-0"
                         />
+                        {!scannerState && (
+                            <div className="flex justify-center px-4 pb-6 lg:pb-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsLive((v) => !v)}
+                                    aria-pressed={isLive}
+                                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-semibold text-white outline-focus-ring transition duration-100 ease-linear hover:bg-white/20 focus-visible:outline-2"
+                                >
+                                    <Camera01 className="size-4" aria-hidden="true" />
+                                    {isLive ? "Use demo codes instead" : "Use this device's camera"}
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="relative z-10 -mt-4 flex flex-1 flex-col gap-4 rounded-t-2xl bg-primary px-4 pt-3 pb-4 lg:mt-0 lg:rounded-none lg:bg-transparent lg:p-0">
