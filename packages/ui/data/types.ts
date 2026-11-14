@@ -133,6 +133,11 @@ export interface StockLevel {
     area: string;
     shelf: string;
     onHand: number;
+    /**
+     * Polish: the finishes this colour is stocked in, each counted separately (the sheet keeps
+     * regular and gel in their own columns). When present, onHand is the sum of the variants.
+     */
+    variants?: StockVariant[];
     /** Polish: open bottles in use on the wall. onHand = inUse + backstock. */
     inUse?: number;
     /** Polish: unopened spares. */
@@ -149,6 +154,23 @@ export interface StockLevel {
     lastCountedBy?: string;
     /** True when onHand came from the generator and not from a real count. */
     isSample: boolean;
+}
+
+export type VariantId = "regular" | "gel" | "dip";
+
+/** One finish of a polish colour. Dip powder is its own catalogue item, linked here so the colour reads as one product. */
+export interface StockVariant {
+    id: VariantId;
+    label: string;
+    /** Open and in use on the wall. */
+    inUse: number;
+    /** Unopened spares. */
+    backstock: number;
+    onHand: number;
+    /** Storage box code from the sheet, e.g. "PK1". */
+    box?: string;
+    /** Set for dip: the separate dip-powder item that holds this quantity. */
+    linkedItemId?: string;
 }
 
 export type StockStatus = "out" | "low" | "ok" | "over" | "unknown" | "paused";
@@ -472,5 +494,32 @@ export interface Task {
     /** What the run cost, when the person paid in store. */
     amountPaid?: number;
     paidWith?: string;
+    isSample?: boolean;
+}
+
+// ------------------------------------------------------------------------------------ collections
+
+export interface CollectionRule {
+    field: "area" | "shelf" | "category" | "vendor" | "brand" | "line" | "family" | "status" | "abc" | "kind";
+    op: "is" | "is-not";
+    value: string;
+}
+
+export type CollectionPurpose = "count-list" | "service-kit" | "shelf" | "general";
+
+/** A saved set of items: hand-picked (manual) or defined by rules (smart). See engine/collections.ts. */
+export interface Collection {
+    id: string;
+    name: string;
+    description?: string;
+    kind: "manual" | "smart";
+    purpose: CollectionPurpose;
+    /** Smart: the rules, and whether all or any must match. */
+    rules?: CollectionRule[];
+    match?: "all" | "any";
+    /** Manual: the items, in display order. */
+    itemIds?: string[];
+    createdBy: string;
+    updatedAt: string;
     isSample?: boolean;
 }

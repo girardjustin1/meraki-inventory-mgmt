@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { CountSession, Item, PurchaseOrder, StockLevel, StockMovement, Vendor } from "@/data/types";
+import { describeRule, matchesRules, resolveCollection } from "./collections";
 import { addDays, daysBetween, monthKey } from "./dates";
 import { buildDigest } from "./digest";
 import { detectFlags } from "./flags";
@@ -743,5 +744,30 @@ describe("search", () => {
         assert.equal(countMatches(docs, "opi"), 2);
         assert.ok(search(docs, "reorder").page);
         assert.deepEqual(search(docs, ""), {});
+    });
+});
+
+describe("collections", () => {
+    const row = (id: string, over: Partial<Item>, area: string, status: "ok" | "low" = "ok") => ({ item: item(id, over), level: { area, shelf: "1A" }, status, vendor: { id: over.vendorId ?? "nail-supply-store" } });
+    const rows = [
+        row("wax", { category: "Waxing Supplies", abc: "C" }, "Wax Room"),
+        row("gel", { abc: "A" }, "Nail Area", "low"),
+        row("pk", { kind: "polish", line: "opi", colorFamily: "Pinks" }, "Polish wall"),
+    ];
+    const base = { createdBy: "u1", updatedAt: TODAY, purpose: "general" as const };
+
+    it("resolves a smart collection by rules, all or any", () => {
+        const wax = { ...base, id: "c1", name: "Wax Room", kind: "smart" as const, rules: [{ field: "area" as const, op: "is" as const, value: "wax room" }] };
+        assert.deepEqual(resolveCollection(wax, rows).map((r) => r.item.id), ["wax"]);
+        const either = { ...base, id: "c2", name: "x", kind: "smart" as const, match: "any" as const, rules: [{ field: "abc" as const, op: "is" as const, value: "A" }, { field: "family" as const, op: "is" as const, value: "Pinks" }] };
+        assert.deepEqual(resolveCollection(either, rows).map((r) => r.item.id), ["gel", "pk"]);
+        assert.equal(matchesRules(rows[1]!, [{ field: "status", op: "is-not", value: "ok" }]), true);
+        assert.equal(matchesRules(rows[0]!, []), false);
+    });
+
+    it("keeps a manual collection in its own order and skips items that are gone", () => {
+        const kit = { ...base, id: "c3", name: "Kit", kind: "manual" as const, itemIds: ["pk", "missing", "wax"] };
+        assert.deepEqual(resolveCollection(kit, rows).map((r) => r.item.id), ["pk", "wax"]);
+        assert.equal(describeRule({ field: "area", op: "is", value: "Wax Room" }), "Area is Wax Room");
     });
 });

@@ -17,6 +17,7 @@
  */
 import { addDays, daysBetween } from "@/engine/dates";
 import { buildDigest } from "@/engine/digest";
+import { resolveCollection } from "@/engine/collections";
 import { detectFlags } from "@/engine/flags";
 import { forecastItem } from "@/engine/forecast";
 import { cyclesOf, demandByItem as demandRowsByItem } from "@/engine/insights";
@@ -29,6 +30,7 @@ import ordersJson from "./seed/orders.json";
 import type {
     ActivityEntry,
     AppNotification,
+    Collection,
     CountSession,
     Digest,
     FillLevel,
@@ -46,8 +48,10 @@ import type {
     StockLevel,
     StockMovement,
     StockStatus,
+    StockVariant,
     Task,
     User,
+    VariantId,
     Vendor,
     VendorId,
 } from "./types";
@@ -84,7 +88,11 @@ interface SeedPolish {
     family?: string;
     reorderFlag: boolean;
     reorderQty?: number | null;
-    finishes?: { regular: { inUse: boolean; qty: number | null }; gel: { offered: boolean; inUse: boolean; qty: number | null }; dip: { inUse: boolean } };
+    finishes?: {
+        regular: { inUse: boolean; qty: number | null; box?: string | null };
+        gel: { offered: boolean; inUse: boolean; qty: number | null; box?: string | null };
+        dip: { inUse: boolean };
+    };
     inUse?: boolean;
     backstock?: number | null;
     outOfStock?: boolean;
@@ -632,7 +640,20 @@ const polishStock: StockLevel[] = catalog.polishes.map((p) => {
         ? open(p.finishes.regular.inUse) + (p.finishes.regular.qty ?? 0) + open(p.finishes.gel.inUse) + (p.finishes.gel.qty ?? 0)
         : open(p.inUse) + (p.backstock ?? 0);
     const inUse = p.finishes ? open(p.finishes.regular.inUse) + open(p.finishes.gel.inUse) : open(p.inUse);
+    // OPI colours come as lacquer and gel, counted in separate columns on the sheet. Dip powder is a
+    // separate catalogue item with the same colour code; it is linked in below once all stock exists.
+    const f = p.finishes;
+    const variants: StockVariant[] | undefined =
+        f && !p.outOfStock
+            ? [
+                  { id: "regular" as const, label: "Regular", inUse: open(f.regular.inUse), backstock: f.regular.qty ?? 0, onHand: open(f.regular.inUse) + (f.regular.qty ?? 0), box: f.regular.box ?? undefined },
+                  ...(f.gel.offered || f.gel.inUse || f.gel.qty
+                      ? [{ id: "gel" as const, label: "Gel", inUse: open(f.gel.inUse), backstock: f.gel.qty ?? 0, onHand: open(f.gel.inUse) + (f.gel.qty ?? 0), box: f.gel.box ?? undefined }]
+                      : []),
+              ]
+            : undefined;
     return {
+        variants,
         itemId: p.id,
         locationId: "lynnfield",
         area: "Polish wall",
@@ -660,6 +681,20 @@ const tipStock: StockLevel[] = catalog.tips.map((t) => ({
     reorderRequested: false,
     isSample: false,
 }));
+
+// Link each OPI colour to its dip powder (a separate item with the same colour code), as a third variant.
+{
+    const dipByCode = new Map(catalog.polishes.filter((p) => p.line === "opi-dip").map((p) => [p.colorCode, p.id]));
+    const levelById = new Map(polishStock.map((s) => [s.itemId, s]));
+    for (const p of catalog.polishes) {
+        if (p.line !== "opi") continue;
+        const dipId = dipByCode.get(p.colorCode);
+        const dip = dipId ? levelById.get(dipId) : undefined;
+        const level = levelById.get(p.id);
+        if (!dipId || !dip || !level?.variants) continue;
+        level.variants.push({ id: "dip", label: "Dip", inUse: dip.inUse ?? 0, backstock: dip.backstock ?? 0, onHand: dip.onHand, linkedItemId: dipId });
+    }
+}
 
 export const stock: StockLevel[] = [...supplyStock("lynnfield"), ...polishStock, ...tipStock, ...supplyStock("newburyport")];
 
@@ -1776,6 +1811,42 @@ export const notifications: AppNotification[] = (() => {
 })();
 
 export const notificationsForUser = (userId: string) => notifications.filter((n) => n.userId === userId);
+
+// ------------------------------------------------------------------------------------ variants and collections
+
+const VARIANT_OF: Record<string, VariantId[]> = { regular: ["regular"], gel: ["gel"], dip: ["dip"], "regular & gel": ["regular", "gel"] };
+
+/** What was ordered per finish for a colour, from the 2026 orders ("Regular & Gel" counts once for each). */
+export const variantDemand = (itemId: string, loc: LocationId): Partial<Record<VariantId, number>> => {
+    const out: Partial<Record<VariantId, number>> = {};
+    for (const po of purchaseOrders) {
+        if (po.locationId !== loc || po.status === "draft") continue;
+        for (const line of po.lines) {
+            if (line.itemId !== itemId || line.qtyOrdered <= 0) continue;
+            for (const v of VARIANT_OF[(line.variant ?? "").trim().toLowerCase()] ?? []) out[v] = (out[v] ?? 0) + line.qtyOrdered;
+        }
+    }
+    return out;
+};
+
+const kitItems = (id: string) => (serviceRecipes.find((r) => r.id === id)?.lines ?? []).map((l) => l.itemId).filter((x): x is string => Boolean(x));
+
+/** Sample collections showing each kind: shelves, service kits, count lists and smart sets. */
+export const collections: Collection[] = [
+    { id: "col-wax-room", name: "Wax Room", description: "Everything stored in the wax room.", kind: "smart", purpose: "shelf", rules: [{ field: "area", op: "is", value: "Wax Room" }], createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -20), isSample: true },
+    { id: "col-cleaning", name: "Cleaning Closet", description: "Paper goods and cleaning supplies.", kind: "smart", purpose: "shelf", rules: [{ field: "area", op: "is", value: "Cleaning Closet" }], createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -20), isSample: true },
+    { id: "col-class-a", name: "Count weekly (class A)", description: "The items that carry most of the spend. Counted every week.", kind: "smart", purpose: "count-list", rules: [{ field: "abc", op: "is", value: "A" }, { field: "kind", op: "is", value: "supply" }], match: "all", createdBy: "u-owner", updatedAt: addDays(TODAY, -9), isSample: true },
+    { id: "col-pedicure", name: "Pedicure station", description: "What a spa pedicure uses. An example kit: edit it to match your stations.", kind: "manual", purpose: "service-kit", itemIds: kitItems("spa-pedicure"), createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -4), isSample: true },
+    { id: "col-dip-kit", name: "Dip powder kit", description: "Liquids and bands for a dip manicure. An example kit.", kind: "manual", purpose: "service-kit", itemIds: kitItems("dip-powder"), createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -4), isSample: true },
+    { id: "col-opi-pinks", name: "OPI pinks", description: "Every OPI lacquer in the Pinks family.", kind: "smart", purpose: "general", rules: [{ field: "line", op: "is", value: "opi" }, { field: "family", op: "is", value: "Pinks" }], match: "all", createdBy: "u-fd-lyn", updatedAt: addDays(TODAY, -2), isSample: true },
+    { id: "col-dazzle", name: "Dazzle Dry system", description: "Base, top and treatments from Dazzle Dry.", kind: "smart", purpose: "general", rules: [{ field: "vendor", op: "is", value: "dazzle-dry" }, { field: "kind", op: "is", value: "supply" }], match: "all", createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -30), isSample: true },
+    { id: "col-empty", name: "Holiday specials", description: "Colours and treatments for the winter menu.", kind: "manual", purpose: "general", itemIds: [], createdBy: "u-owner", updatedAt: TODAY, isSample: true },
+];
+
+export const getCollection = (id: string) => collections.find((c) => c.id === id);
+
+/** The stock rows in a collection at a location. */
+export const collectionRows = (collection: Collection, loc: LocationId): StockRow[] => resolveCollection(collection, stockRows(loc));
 
 // ------------------------------------------------------------------------------------ summary numbers
 
