@@ -631,12 +631,15 @@ const polishStock: StockLevel[] = catalog.polishes.map((p) => {
     const qty = p.finishes
         ? open(p.finishes.regular.inUse) + (p.finishes.regular.qty ?? 0) + open(p.finishes.gel.inUse) + (p.finishes.gel.qty ?? 0)
         : open(p.inUse) + (p.backstock ?? 0);
+    const inUse = p.finishes ? open(p.finishes.regular.inUse) + open(p.finishes.gel.inUse) : open(p.inUse);
     return {
         itemId: p.id,
         locationId: "lynnfield",
         area: "Polish wall",
         shelf: p.colorCode,
         onHand: p.outOfStock ? 0 : qty,
+        inUse: p.outOfStock ? 0 : inUse,
+        backstock: p.outOfStock ? 0 : qty - inUse,
         // One open bottle per finish offered: lacquer and gel for OPI, a single bottle or jar for the other lines.
         par: p.finishes ? 2 : 1,
         parRule: "quantity",
@@ -827,6 +830,50 @@ export const getForecast = (itemId: string, loc: LocationId) => forecastMap.get(
 
 // ------------------------------------------------------------------------------------ joined rows
 
+/** One open order line that has not been received yet. */
+export interface IncomingLine {
+    orderId: string;
+    orderNumber: string;
+    qty: number;
+    /** Date the order was placed. */
+    orderedAt: string;
+    ageDays: number;
+    /** Older than the backlog threshold: probably arrived and never logged, so it is not counted as incoming. */
+    unconfirmed: boolean;
+}
+
+/** Orders older than this with open lines are treated as unconfirmed, not as stock on its way. Same threshold as the flag engine. */
+export const INCOMING_MAX_AGE_DAYS = 120;
+
+const incomingIndex = new Map<string, IncomingLine[]>();
+let incomingBuilt = false;
+// The November sample orders are built from reorder suggestions, which read stock rows, which read
+// this index. So it starts from the imported orders and is rebuilt once every order exists.
+let incomingSource: PurchaseOrder[] | undefined;
+const buildIncoming = () => {
+    incomingIndex.clear();
+    for (const po of incomingSource ?? importedOrders) {
+        if (po.status !== "sent" && po.status !== "partially-received") continue;
+        const ageDays = daysBetween(po.sentAt ?? po.createdAt, TODAY);
+        for (const line of po.lines) {
+            const open = line.qtyOrdered - line.qtyReceived;
+            if (!line.itemId || open <= 0) continue;
+            const key = `${po.locationId}:${line.itemId}`;
+            incomingIndex.set(key, [
+                ...(incomingIndex.get(key) ?? []),
+                { orderId: po.id, orderNumber: po.number, qty: open, orderedAt: po.sentAt ?? po.createdAt, ageDays, unconfirmed: ageDays > INCOMING_MAX_AGE_DAYS },
+            ]);
+        }
+    }
+    incomingBuilt = true;
+};
+
+/** Open order lines for an item at a location, newest order first. */
+export const incomingLines = (itemId: string, loc: LocationId): IncomingLine[] => {
+    if (!incomingBuilt) buildIncoming();
+    return [...(incomingIndex.get(`${loc}:${itemId}`) ?? [])].sort((a, b) => a.ageDays - b.ageDays);
+};
+
 export interface StockRow {
     item: Item;
     level: StockLevel;
@@ -834,6 +881,10 @@ export interface StockRow {
     status: StockStatus;
     vendor: Vendor;
     value: number;
+    /** Ordered and on its way: open lines on orders placed within the last 120 days. */
+    incoming: number;
+    /** Ordered long ago and never marked received. Shown separately; see the "Order not received" flag. */
+    unconfirmed: number;
 }
 
 export const stockRows = (loc: LocationId, kind?: Item["kind"]): StockRow[] =>
@@ -842,6 +893,7 @@ export const stockRows = (loc: LocationId, kind?: Item["kind"]): StockRow[] =>
         .map((level) => {
             const item = getItem(level.itemId) as Item;
             const forecast = getForecast(level.itemId, loc);
+            const lines = incomingLines(level.itemId, loc);
             return {
                 item,
                 level,
@@ -849,6 +901,8 @@ export const stockRows = (loc: LocationId, kind?: Item["kind"]): StockRow[] =>
                 status: stockStatus(level, forecast),
                 vendor: vendorById(item.vendorId),
                 value: level.onHand * (item.unitCost ?? 0),
+                incoming: lines.filter((l) => !l.unconfirmed).reduce((n, l) => n + l.qty, 0),
+                unconfirmed: lines.filter((l) => l.unconfirmed).reduce((n, l) => n + l.qty, 0),
             };
         })
         .filter((r) => !kind || r.item.kind === kind);
@@ -894,12 +948,23 @@ const novemberOrders: PurchaseOrder[] = (() => {
     // One of each state the ordering screens need: waiting for the owner, still a draft, and approved and ready to send.
     const approved = build("costco-bjs", 3, "approved", 6);
     if (approved) approved.approvedBy = "u-owner";
-    return [build("nail-supply-store", 1, "awaiting-approval", 14), build("amazon", 2, "draft", 6), approved].filter((po): po is PurchaseOrder => Boolean(po));
+    // And one already on its way, so "Incoming" and receiving have a recent order to show.
+    const sent = build("dazzle-dry", 4, "sent", 6);
+    if (sent) {
+        sent.approvedBy = "u-owner";
+        sent.createdAt = addDays(TODAY, -6);
+        sent.sentAt = addDays(TODAY, -5);
+    }
+    return [build("nail-supply-store", 1, "awaiting-approval", 14), build("amazon", 2, "draft", 6), approved, sent].filter((po): po is PurchaseOrder => Boolean(po));
 })();
 
 export const purchaseOrders: PurchaseOrder[] = [...novemberOrders, ...importedOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
 export const getPurchaseOrder = (id: string) => purchaseOrders.find((po) => po.id === id);
+
+// Every order now exists: rebuild the incoming index from all of them.
+incomingSource = purchaseOrders;
+incomingBuilt = false;
 
 export const orderTotal = (po: PurchaseOrder) => po.lines.reduce((sum, l) => sum + l.qtyOrdered * (l.unitCost ?? 0), 0);
 

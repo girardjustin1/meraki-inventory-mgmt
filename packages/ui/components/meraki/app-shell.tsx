@@ -74,28 +74,52 @@ const count = (n: number, color: "gray" | "error" | "warning" = "gray") =>
         </Badge>
     ) : undefined;
 
-/** Sidebar navigation for one person: entries they have no permission for are left out. */
+/**
+ * Sidebar navigation for one person, grouped by the job being done. Entries they have no
+ * permission for are left out, and a group with nothing in it is dropped.
+ */
 export const buildNav = (location: LocationId, user: User = CURRENT_USER): (NavItemType | NavItemDividerType)[] => {
     const s = summary(location);
     const openTasks = tasksFor(user.id).filter((t) => t.status === "assigned" || t.status === "accepted" || t.status === "in-progress").length;
-    const work: (NavItemType | false)[] = [
-        { label: "Home", href: ROUTES.home, icon: HomeLine },
-        { label: "Stock", href: ROUTES.stock, icon: Package, badge: count(s.low + s.out, "warning") },
-        { label: "Scan", href: ROUTES.scan, icon: QrCode02 },
-        can(user, "stock.count") && { label: "Counts", href: ROUTES.counts, icon: ClipboardCheck, badge: count(s.countsDue) },
-        can(user, "orders.view") && { label: "Orders", href: ROUTES.orders, icon: ShoppingCart01, badge: count(s.awaitingApproval) },
-        can(user, "orders.receive") && { label: "Receive", href: ROUTES.receive, icon: Truck01, badge: count(s.openOrders) },
-        { label: "Tasks", href: ROUTES.tasks, icon: CheckSquare, badge: count(openTasks) },
-        can(user, "flags.view") && { label: "Flags", href: ROUTES.flags, icon: Flag01, badge: count(s.openFlags, s.highFlags ? "error" : "gray") },
+    const groups: { label: string; items: (NavItemType | false)[] }[] = [
+        {
+            label: "Inventory",
+            items: [
+                { label: "Stock", href: ROUTES.stock, icon: Package, badge: count(s.low + s.out, "warning") },
+                can(user, "stock.count") && { label: "Counts", href: ROUTES.counts, icon: ClipboardCheck, badge: count(s.countsDue) },
+                { label: "Scan", href: ROUTES.scan, icon: QrCode02 },
+            ],
+        },
+        {
+            label: "Purchasing",
+            items: [
+                can(user, "orders.view") && { label: "Orders", href: ROUTES.orders, icon: ShoppingCart01, badge: count(s.awaitingApproval) },
+                can(user, "orders.receive") && { label: "Receive", href: ROUTES.receive, icon: Truck01, badge: count(s.openOrders) },
+                { label: "Tasks", href: ROUTES.tasks, icon: CheckSquare, badge: count(openTasks) },
+            ],
+        },
+        {
+            label: "Review",
+            items: [
+                can(user, "flags.view") && { label: "Flags", href: ROUTES.flags, icon: Flag01, badge: count(s.openFlags, s.highFlags ? "error" : "gray") },
+                can(user, "activity.view") && { label: "Activity", href: ROUTES.activity, icon: ReceiptCheck },
+            ],
+        },
+        {
+            label: "Insights",
+            items: [
+                can(user, "reports.view") && { label: "Insights", href: ROUTES.insights, icon: LineChartUp01 },
+                can(user, "reports.view") && { label: "Reports", href: ROUTES.reports, icon: BarChartSquare02 },
+                can(user, "digests.view") && { label: "Digests", href: ROUTES.digest, icon: Mail01 },
+            ],
+        },
     ];
-    const insight: (NavItemType | false)[] = [
-        can(user, "reports.view") && { label: "Insights", href: ROUTES.insights, icon: LineChartUp01 },
-        can(user, "reports.view") && { label: "Reports", href: ROUTES.reports, icon: BarChartSquare02 },
-        can(user, "digests.view") && { label: "Digests", href: ROUTES.digest, icon: Mail01 },
-        can(user, "activity.view") && { label: "Activity", href: ROUTES.activity, icon: ReceiptCheck },
-    ];
-    const second = insight.filter((i): i is NavItemType => Boolean(i));
-    return [...work.filter((i): i is NavItemType => Boolean(i)), ...(second.length ? [{ divider: true as const }, ...second] : [])];
+    const out: (NavItemType | NavItemDividerType)[] = [{ label: "Home", href: ROUTES.home, icon: HomeLine }];
+    for (const group of groups) {
+        const items = group.items.filter((i): i is NavItemType => Boolean(i));
+        if (items.length) out.push({ divider: true, label: group.label }, ...items);
+    }
+    return out;
 };
 
 /** Footer navigation: notifications, team (read-only for users) and, for admins, settings. */
@@ -374,12 +398,19 @@ export const CardHeader = ({ title, description, actions }: { title: string; des
 );
 
 /**
- * States plainly which numbers on a screen are real and which are placeholders.
+ * States plainly which numbers on a screen are real and which are placeholders. A small chip that
+ * opens to the detail, so it does not push the content down on every screen.
  * Keep it on every screen until Supabase holds real counts and invoice costs.
  */
 export const SampleDataNote = ({ children, className }: { children?: ReactNode; className?: string }) => (
-    <p className={cx("rounded-lg bg-secondary px-3 py-2 text-xs text-tertiary ring-1 ring-secondary ring-inset", className)}>
-        <span className="font-semibold text-secondary">Prototype data. </span>
-        {children ?? "Items, shelves, par levels and 2026 orders come from Meraki's spreadsheets. Costs, staff, counts and usage are sample values."}
-    </p>
+    <details className={cx("group w-fit max-w-full text-xs text-tertiary", className)}>
+        <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary ring-1 ring-secondary outline-focus-ring ring-inset hover:bg-secondary_hover focus-visible:outline-2">
+            <span className="size-1.5 rounded-full bg-fg-warning-secondary" aria-hidden="true" />
+            Prototype data
+            <span className="text-quaternary group-open:hidden">· what is real?</span>
+        </summary>
+        <p className="mt-2 max-w-3xl rounded-lg bg-secondary px-3 py-2 ring-1 ring-secondary ring-inset">
+            {children ?? "Items, shelves, par levels and 2026 orders come from Meraki's spreadsheets. Costs, staff, counts and usage are sample values."}
+        </p>
+    </details>
 );

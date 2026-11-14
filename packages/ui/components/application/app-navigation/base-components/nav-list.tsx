@@ -20,6 +20,14 @@ export const NavList = ({ activeUrl, items, className }: NavListProps) => {
         <ul className={cx("flex flex-col px-4 pt-5", className)}>
             {items.map((item, index) => {
                 if (item.divider) {
+                    // [Meraki] A divider with a label renders as a section heading.
+                    if (item.label) {
+                        return (
+                            <li key={index} className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-quaternary uppercase">
+                                {item.label}
+                            </li>
+                        );
+                    }
                     return (
                         <li key={index} className="w-full px-0.5 py-2">
                             <hr className="h-px w-full border-none bg-border-secondary" />

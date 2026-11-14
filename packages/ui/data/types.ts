@@ -133,6 +133,10 @@ export interface StockLevel {
     area: string;
     shelf: string;
     onHand: number;
+    /** Polish: open bottles in use on the wall. onHand = inUse + backstock. */
+    inUse?: number;
+    /** Polish: unopened spares. */
+    backstock?: number;
     /** Set when the item is tracked by fill level. */
     fillLevel?: FillLevel;
     par?: number;

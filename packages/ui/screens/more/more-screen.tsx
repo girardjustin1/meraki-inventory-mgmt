@@ -38,6 +38,9 @@ interface Row {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+/** Rows with these labels, in the order given. */
+const pick = (rows: Row[], labels: string[]) => labels.map((l) => rows.find((r) => r.label === l)).filter((r): r is Row => Boolean(r));
+
 const rowClass =
     "flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left outline-focus-ring transition duration-100 ease-linear hover:bg-primary_hover focus-visible:outline-2 focus-visible:-outline-offset-2";
 
@@ -188,8 +191,14 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
                     </div>
                 </section>
 
-                <Group title="Work" rows={work} />
-                {insight.length > 0 && <Group title="Insight" rows={insight} />}
+                {/* Same groups as the desktop sidebar, so people find things in the same place on both. */}
+                <Group title="For you" rows={pick(work, ["Notifications", "Tasks"])} />
+                {pick(work, ["Counts"]).length > 0 && <Group title="Inventory" rows={pick(work, ["Counts"])} />}
+                {pick(work, ["Receive"]).length > 0 && <Group title="Purchasing" rows={pick(work, ["Receive"])} />}
+                {[...pick(work, ["Flags"]), ...pick(insight, ["Activity"])].length > 0 && (
+                    <Group title="Review" rows={[...pick(work, ["Flags"]), ...pick(insight, ["Activity"])]} />
+                )}
+                {pick(insight, ["Insights", "Reports", "Digests"]).length > 0 && <Group title="Insights" rows={pick(insight, ["Insights", "Reports", "Digests"])} />}
                 <Group title={admin ? "Admin" : "Your team"} rows={adminRows} />
 
                 <section aria-label="Session" className="flex flex-col gap-2">
