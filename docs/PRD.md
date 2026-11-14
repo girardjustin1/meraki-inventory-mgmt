@@ -88,12 +88,15 @@ Meraki already runs a monthly cycle (from the "Directions" sheet). The app keeps
 
 - Reorder suggestions with the reason for each line and an editable quantity.
 - A warning when a quantity is at least twice the item's usual order.
-- One draft purchase order per vendor; owner approval before sending.
+- One draft purchase order per vendor; admin approval before sending. A mixed list is split by vendor automatically.
+- **Send orders** screen: each approved order gets the sending method that fits its vendor, chosen from an emailed purchase order (an editable draft: to, subject, body, needed-by date, note; sent through Resend, opened in the person's own mail app, or copied), a pre-filled cart link, or a printable pick list. Orders placed by phone or in person can be marked as sent. Emails carry no prices: the vendor's invoice is the record of price.
 - Sending depends on the vendor (full detail in `docs/research/03-wholesale-and-product-data.md`):
   - **Every vendor**: a purchase order by email, or a printable pick list for in-store runs. This is the baseline and needs nothing from the vendor.
   - **Shopify-based vendors** (Dazzle Dry, FarmHouse Fresh and Starpil professional portals, and most nail-supply distributors): a link that opens a pre-filled cart. Whether the link keeps wholesale pricing after login is not confirmed and needs a test with Meraki's account.
   - **Amazon Business**: the only vendor with ordering APIs. Access is by application and Amazon's approval, which is not guaranteed for a single small buyer.
   - **No API, EDI or punch-out was found** for Costco Business Center, BJ's, OPI's distributors (CosmoProf, SalonCentric), DND, NuGenesis, Chisel or Aprés. Ordering "straight from the app" for these means the app prepares the order and a person places it.
+
+- **Later option: a cart-filling agent.** For vendors with no cart link and no API (Amazon, Costco, OPI's distributors), a Claude agent using the computer-use tool can operate the vendor's site in a sandboxed browser: find each item by SKU, set the quantity, and stop at the cart for a person to review and pay. It never checks out by itself. Before relying on it: check each vendor's terms on automated access, keep logins in a vault, handle two-factor prompts by hand, match items on SKU or barcode and flag anything uncertain, and measure the cost per cart in a one-vendor pilot.
 
 ### 6.5 Receiving
 
@@ -142,7 +145,37 @@ Review queue with Open, Reviewing and Resolved; assignment; notes; a required ou
 - A four-digit PIN locks the app after a period of inactivity and on shared devices lets staff switch user quickly. The PIN is a convenience lock on top of the Google session, not a second factor.
 - Five wrong attempts locks for 60 seconds.
 
-### 6.10 Works everywhere
+### 6.10 Team, invites and access
+
+- **Two layers of access.** An *Admin* can do everything at every location, including managing the team, invites and settings. A *User* gets what their role (manager, front desk, technician) grants, at their own locations. Owners are always admins; an admin can promote anyone else. The full matrix (19 permissions) is on the Team screen and defined once in `packages/ui/engine/permissions.ts`; the database policies are checked against it by `npm run test:db`.
+- **Separation of duties binds admins too**: nobody approves or receives an order they created, approves their own count, or closes a flag about themselves. The last remaining admin cannot be demoted.
+- **Invites.** An admin invites by email (only that Google account can accept; link lasts 7 days) or creates an open link to hand to someone (lasts 48 hours, cannot grant admin access). Each link works once. Admins can copy, show as a QR code, resend (which replaces the link) and revoke.
+- **Sign-up.** The link opens a page showing who invited the person, their role, access and locations. They continue with Google, confirm their name, set a PIN, and are in. Expired, revoked, used and wrong-account links each explain what to do next.
+- **How it is enforced.** Signing in with Google grants nothing by itself: every database rule needs an active profile, and only accepting a valid invite creates one. Invite tokens are stored hashed. Clerk's own invitation feature is not used because it cannot do open links and would put access decisions in a second place.
+
+### 6.11 Finding things: search and links
+
+- **Command menu** (Cmd+K, Ctrl+K, or `/`): finds a product by name, brand, colour code, SKU or barcode and shows its shelf, quantity and status; also finds orders, open flags and pages. It shows only what the person has permission to see.
+- **Deep links.** The address bar carries the view: location, tab, filters, search text and the selected record. Any view can be copied and sent to someone, for example `/stock?loc=newburyport&status=low` or `/flags?severity=high&type=count-variance`. The chosen location is remembered between pages.
+
+### 6.12 Notes, mentions, notifications and pickup runs
+
+- **Notes with @mentions** on orders, flags and tasks (counts and items next). Typing `@` lists the people who can see that record: staff at its location, and admins. A mention notifies that person and links them to the record. Mentions are stored by person, not by name, so nobody is notified by text that merely looks like a name.
+- **Notifications inbox** (bell in the header): mentions, tasks assigned, approvals requested, flags assigned, counts due, deliveries expected. In the app always; by email for the types each person chooses. Phone push notifications need the app added to the Home Screen and are a later step.
+- **Pickup runs.** From an order's pick list, "Send someone to pick this up" assigns a person, a time, a place and how to pay, with a note. They are notified, see the pick list on their phone, tick off what they got, record shortfalls and substitutions, and finish with the amount paid. Picking up does not change stock: stock changes when the delivery is received at the salon, by someone other than the person who created the order.
+- **Tasks** screen: what is assigned to me, what I assigned, and everyone's at this location for managers and admins.
+
+### 6.13 Insights
+
+Forward-looking planning, separate from Reports (which looks back at operations). Every card says whether it rests on Meraki's sheets or on sample values.
+
+- **Products**: forecast per supply (monthly usage, days of cover, next reorder date, suggested order, confidence), and how few items carry most of the projected spend.
+- **Colours**: demand per colour and per colour family across order cycles, forecast per colour, and colours in stock that were never reordered. From the 2026 orders: 178 colours were reordered; the most reordered was reordered in all three polish cycles; 355 colours with two or more bottles on hand were not ordered at all in 2026 (971 bottles sit across the 423 colours left off the last two polish orders), which is the list to review for retiring.
+- **Seasonality**: needs twelve months of usage. Today there are five months with order data, so the screen shows the early pattern (for example, blues were none of January's polish order and 18% of July's) labelled as an early signal, says when a full year will exist (January 2027), and lets the owner add known busy periods as a what-if.
+- **Profitability**: a cost-per-service calculator (product cost per service, margin after product, the costliest product in each service). It ships with example recipes and sample costs, clearly marked. Real figures need invoice costs and Meevo service counts. Labour, rent and card fees are not included.
+- **Planning**: a reorder timeline for the next 90 days, with a switch between the vendor's quoted lead time and Meraki's measured 48-day cycle, and a three-month spend projection (sample costs).
+
+### 6.14 Works everywhere
 
 - Responsive from 360px to desktop. Sidebar on desktop; top bar and five bottom tabs on a phone (Home, Stock, Scan, Orders, More).
 - Installable from Safari with "Add to Home Screen": full-screen, own icon.
@@ -166,12 +199,13 @@ See `docs/architecture.md` and `supabase/migrations/0001_init.sql`.
 
 - **Importer** for the three workbooks (`tools/import`), producing the seed catalogue and the 2026 orders. Staff names are not written to the repo.
 - **Engines** for forecasting, flags and digests, running on the imported data. 26 automated tests.
-- **Design system** themed to the website, and 21 screens in Storybook, each at desktop and phone widths: home, stock (supplies, polish, tips), item detail, scan, counts, count session, count review, orders, order detail, new order, receive, flags, flag detail, activity, reports, digests, team, settings, sign-in, PIN lock, more.
+- **Design system** themed to the website, and 27 screens in Storybook, each at desktop and phone widths: home, stock (supplies, polish, tips), item detail, scan, counts, count session, count review, orders, order detail, new order, send orders, receive, tasks, pickup run, flags, flag detail, notifications, activity, insights, reports, digests, team and invites, settings, sign-in, accept invite, PIN lock, more.
 - **Barcode scanner** component with a real camera path (native detector, ZXing fallback) and a demo mode. The fallback was exercised in desktop Chrome with a synthetic barcode video. It has not been tested on a physical iPhone.
 - **Next.js prototype** rendering every screen on 27 routes. Production build passes.
 - **Backend, written and not connected**: Supabase schema (21 tables, 63 row-level-security policies), Clerk request guard, PIN lock API, Resend digest and flag-alert emails, cron routes, home-screen manifest and icons. The schema was run in an in-memory Postgres with 140 checks on its rules (`npm run test:db`). Nothing has run against real Supabase, Clerk, Resend or Vercel.
 - **Product data** for 55 products gathered from public manufacturer and distributor pages: 52 with a photo, 41 with a check-digit-validated UPC, each with its source page. 44 catalogue supplies now show a photo. Images are hot-linked for the prototype; before production they should be approved by a person and copied to Meraki's own storage, or supplied by the vendor.
 - **Research**: UX patterns (Mobbin, 79 reference screens), inventory controls, vendor and product-data options (`docs/research`).
+- **Second round** (same day): command menu and deep links; Admin and User access with invites and sign-up; send orders with per-vendor email drafts, cart links and pick lists; notes with @mentions, notifications and pickup runs; the Insights tab; and a prototype-only "view as" switch to see the app as any sample person. The engine now has 46 tests and the database 350 rule checks.
 
 Known limits of the prototype:
 
@@ -191,6 +225,7 @@ Known limits of the prototype:
 | 4. Ordering | Reorder builder and approvals live; emailed purchase orders; costs from invoices | Vendor contacts and price lists |
 | 5. Newburyport | Second location with its own catalogue and counts; transfers between locations | Newburyport inventory list |
 | 6. Deeper insight | Usage per service from Meevo; seasonality; vendor API ordering where available; offline counting | Meevo API access; 6 to 12 months of ledger data |
+| 7. Cart agent pilot | A Claude agent fills one vendor's cart from an approved order and stops for review | Anthropic API key, a hosted browser sandbox, the vendor's terms allowing it |
 
 ## 11. Open questions
 
@@ -204,3 +239,8 @@ Known limits of the prototype:
 8. **"Nail Supply Store" and "Warehouse".** Which distributor is the nail supply store, and is the warehouse a Meraki stockroom?
 9. **Who receives the digests** and flag alerts at each location?
 10. **Repository visibility.** The GitHub repository is public. It should be private before any client data or keys are added.
+11. **Who approves orders.** The app now requires an admin who did not create the order. If admins also build orders, Meraki needs at least two admins. Is that the intent?
+12. **Open invite links.** Keep them (convenient for hiring at the front desk) or allow email invites only (stricter)?
+13. **Can a non-owner admin demote or remove an owner?** Today any admin can; only the last admin is protected.
+14. **Uninvited Google accounts.** Someone without an invite can still create a sign-in that can do nothing. Delete those automatically, or leave them inert?
+15. **Session length on shared devices.** Clerk's free plan fixes sessions at 7 days; a shorter session needs a paid plan. The PIN lock covers the gap in the meantime.

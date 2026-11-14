@@ -11,3 +11,8 @@
 - `references/` holds the client's spreadsheets and private files. It is git-ignored. Never commit it, never copy staff names from it into the repo. `tools/import/import_spreadsheets.py` regenerates the seed JSON with names removed.
 - The app must run with no service keys set (prototype mode). Clerk, Supabase and Resend are skipped when not configured: see `apps/web/lib/env.ts`.
 - Checks: `npm run type-check`, `npm run test:engine`, `npm run test:db`, `npm run build-storybook`, `npm run build`.
+- Permissions: `packages/ui/engine/permissions.ts` (`can`, `isAdmin`, `ROLE_GRANTS`) is the single source for the UI. Check permissions with `can(user, "…")`, never with `user.role === …`. The SQL in `supabase/migrations/0002_access_and_invites.sql` mirrors `ROLE_GRANTS`, and `npm run test:db` fails when they differ: change both together.
+- Deep links: screens mirror view state into the URL with `useUrlSync` (`packages/ui/utils/url-sync.tsx`) and take matching `initial…` props; each page in `apps/web/app` reads the query string through `lib/view-params.ts`. Add both sides when a screen gains a tab or filter.
+- Who is using the app: `viewer()` on the server (`apps/web/lib/view-params.ts`) and `useViewer()` on the client. In the prototype it is the "view as" cookie; with Clerk connected it becomes the signed-in profile. Pages pass `user={await viewer()}` to screens that take a user.
+- Notes use mention tokens (`@[user-id]`); see `packages/ui/engine/mentions.ts`. Order sending text (email drafts, pick lists, cart links) comes from `packages/ui/engine/order-send.ts`.
+- `tools/dev/cdp.mjs` drives headless Chrome with real key presses and clicks; use it to check interactive behaviour.

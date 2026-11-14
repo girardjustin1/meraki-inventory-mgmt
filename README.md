@@ -23,7 +23,13 @@ npm run dev           # the Next.js prototype, http://localhost:3000
 
 If port 6006 is taken by another Storybook, run `npx storybook dev -p 6007` from `packages/ui`.
 
-The prototype needs no keys. Sign-in continues to the PIN screen; the prototype PIN is `2580`. The scanner at `/scan` uses demo codes; `/scan?live=1` uses the camera.
+The prototype needs no keys.
+
+- **View as**: there is no sign-in yet, so the sidebar (bottom left) lets you see the app as the owner, a manager, front desk or a technician. It opens as the owner.
+- **Search**: Cmd+K (or Ctrl+K, or `/`) finds products, colour codes, orders, flags and pages.
+- **Links**: the address bar carries the view, for example `/stock?loc=newburyport&status=low` or `/flags?severity=high`.
+- **Sign-in** continues to the PIN screen; the prototype PIN is `2580`. An invite link looks like `/invite/mk_7Qp2xV9aLr4TnB6c`.
+- **Scanner**: `/scan` uses demo codes; `/scan?live=1` uses the camera.
 
 Checks:
 
