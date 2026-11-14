@@ -21,11 +21,16 @@ npm run storybook     # design system and every screen, http://localhost:6006
 npm run dev           # the Next.js prototype, http://localhost:3000
 ```
 
+If port 6006 is taken by another Storybook, run `npx storybook dev -p 6007` from `packages/ui`.
+
+The prototype needs no keys. Sign-in continues to the PIN screen; the prototype PIN is `2580`. The scanner at `/scan` uses demo codes; `/scan?live=1` uses the camera.
+
 Checks:
 
 ```bash
 npm run type-check
-npm run test:engine -w @meraki/ui
+npm run test:engine     # forecast, flag and digest rules
+npm run test:db         # schema and row-level security, in an in-memory Postgres
 npm run build-storybook
 npm run build
 ```
