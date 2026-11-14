@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+dist/
+storybook-static/
+*.tsbuildinfo
+next-env.d.ts
+.env*
+!.env.example
+.DS_Store
+.vercel
+npm-debug.log*
+
+# Client source material: spreadsheets, brand files and other private documents.
+# Never commit this folder. Seed data is generated from it by tools/import.
+references/
+data/private/
+__pycache__/
+.venv/

@@ -1,0 +1,56 @@
+# Meraki Inventory
+
+Inventory app for Meraki Spa's two locations: count stock, reorder, receive deliveries, review flags, and get weekly and monthly digests. Works on desktop and as an iPhone home-screen web app.
+
+This is a first-pass prototype. Screens run on Meraki's real catalogue and 2026 order history, with sample values where the spreadsheets hold no data (costs, staff, counts). No live services are connected yet.
+
+## Start here
+
+| Read | For |
+| --- | --- |
+| [docs/PRD.md](docs/PRD.md) | What the app does, what the spreadsheets showed, milestones, open questions |
+| [docs/architecture.md](docs/architecture.md) | How the pieces fit: Next.js, Clerk, Supabase, Resend |
+| [docs/research/](docs/research/) | UX patterns (Mobbin), inventory controls, vendor and product-data options |
+| [apps/web/README.md](apps/web/README.md) | Connecting Clerk, Supabase, Resend and Vercel |
+
+## Run it
+
+```bash
+npm install
+npm run storybook     # design system and every screen, http://localhost:6006
+npm run dev           # the Next.js prototype, http://localhost:3000
+```
+
+Checks:
+
+```bash
+npm run type-check
+npm run test:engine -w @meraki/ui
+npm run build-storybook
+npm run build
+```
+
+## Layout
+
+```
+packages/ui/
+  components/      Untitled UI (vendored) and components/meraki (ours)
+  screens/         one folder per screen, with Desktop and Mobile stories
+  engine/          forecast, flags, digest, stock status: pure TypeScript, tested
+  data/            prototype data layer and seed JSON imported from the workbooks
+  styles/          theme matched to merakispainc.com
+apps/web/          Next.js app: routes, API routes, email templates, PWA manifest
+supabase/          schema and row-level security
+tools/import/      turns the Excel workbooks into seed JSON
+docs/              PRD, architecture, research
+references/        client spreadsheets and private files (git-ignored)
+```
+
+## Re-importing the spreadsheets
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install openpyxl
+.venv/bin/python tools/import/import_spreadsheets.py references/111426
+```
+
+Staff names in the workbooks are replaced with roles before anything is written to the repo.
