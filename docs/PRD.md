@@ -69,6 +69,11 @@ Meraki already runs a monthly cycle (from the "Directions" sheet). The app keeps
 - Item page: history of every movement, forecast with its reasoning, order history, flags, and settings.
 - Adjustments use "Set to" or "Adjust by" with a required reason and a before and after preview. Changes of three or more units need a note.
 
+- **Quantities are edited where they are shown.** In the stock table, a quantity is a button: click it, adjust by or set a new quantity, give a reason. Columns show On hand, Incoming (on recent open orders) and Par. Orders placed more than 120 days ago and never marked received are shown as "unconfirmed", not counted as incoming.
+- **Batch actions.** Selecting rows offers: add to an order (one draft per vendor), count these items, edit quantities and par levels in a grid, set par, change vendor or shelf, pause or resume reordering, print QR labels, export.
+- **Variants.** A polish colour is one product with a variant per finish (Regular, Gel, Dip), each with its own count of bottles in use and in backstock, as the sheets record them. Dip powder stays a separate catalogue item linked to the colour.
+- **Collections.** Saved sets of items, hand-picked or defined by rules ("everything in the Wax Room", "OPI pinks", "class A items"). A collection can be counted as a list, ordered from, or used as a service kit.
+
 ### 6.2 Barcode scanning
 
 - Camera scanning in the browser, no app store install: the standard `BarcodeDetector` interface with a ZXing WebAssembly fallback so it works in iPhone Safari.
@@ -184,6 +189,20 @@ Forward-looking planning, separate from Reports (which looks back at operations)
 ## 7. Design system
 
 Untitled UI React (MIT), vendored into `packages/ui`, themed to match merakispainc.com: Figtree for text, Instrument Serif italic as the accent, aqua `#65c5c3` primary buttons with ink `#17262e` text, deep teal `#245b59` for links and controls, cool slate neutrals, mist `#f1f7f8` page background. Every screen has Storybook stories at desktop and phone widths.
+
+### Interface principles
+
+Adopted after comparing the first pass with the Shopify admin, whose inventory table and detail pages the client prefers. The patterns are borrowed; the look stays Meraki's.
+
+1. Say each thing once: one badge per status, not a coloured number, a meter and a badge.
+2. One line per table row; numbers right-aligned.
+3. Edit where you look: quantities change in place.
+4. One "search and filter" bar per list, with a view picker and a column chooser.
+5. Column headers explain themselves with a tooltip, not with paragraphs on the page.
+6. Detail pages have a main column of cards and a plain right rail for status and organisation.
+7. Optional fields appear as chips that open when needed.
+8. One action cluster at the top right; one "Unsaved changes" bar for edits.
+9. Navigation is grouped by job: Inventory, Purchasing, Review, Insights.
 
 ## 8. Architecture
 
