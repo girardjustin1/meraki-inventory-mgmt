@@ -23,7 +23,7 @@ const LOCK_SECONDS = 60;
 const firstName = (name: string) => name.split(" ")[0] ?? name;
 
 /** PINs that are too easy to guess from a glance at the keypad. */
-const isWeakPin = (pin: string) => {
+export const isWeakPin = (pin: string) => {
     if (/^(\d)\1+$/.test(pin)) return true;
     const steps = pin.split("").map(Number);
     const ascending = steps.every((d, i) => i === 0 || d === (steps[i - 1] ?? 0) + 1);

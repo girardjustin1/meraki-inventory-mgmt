@@ -22,6 +22,7 @@ import type { FillLevel, Item, LocationId, PurchaseOrder, PurchaseOrderLine, Sto
 import { formatDate, relativeDays } from "@/engine/dates";
 import { FILL_FRACTION, FILL_LABEL, stockStatus } from "@/engine/stock";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 export type ScanMode = "lookup" | "count" | "use" | "receive";
 
@@ -161,6 +162,7 @@ export const ScanScreen = ({
     const user = userProp ?? frontDesk(location);
 
     const [mode, setMode] = useState<ScanMode>(initialMode);
+    useUrlSync({ mode: mode === "lookup" ? undefined : mode });
     const [links, setLinks] = useState<Record<string, string>>({});
     const [current, setCurrent] = useState<ScanResult | null>(() => (initialCode ? lookupCode(initialCode, initialLocation) : null));
     const [entries, setEntries] = useState<ScanEntry[]>(() => {

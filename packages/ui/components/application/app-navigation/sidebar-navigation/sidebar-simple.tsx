@@ -28,6 +28,8 @@ interface SidebarNavigationProps {
     className?: string;
     /** [Meraki] Brand mark shown at the top of the sidebar and in the mobile header. Defaults to the Untitled UI logo. */
     logo?: ReactNode;
+    /** [Meraki] Replaces the built-in search input, e.g. with a button that opens the command menu. */
+    search?: ReactNode;
     /** Whether to round the account card avatar. */
     avatarRounded?: boolean;
 }
@@ -41,6 +43,7 @@ export const SidebarNavigationSimple = ({
     hideBorder = false,
     className,
     logo,
+    search,
 }: SidebarNavigationProps) => {
     const MAIN_SIDEBAR_WIDTH = 280;
 
@@ -60,11 +63,16 @@ export const SidebarNavigationSimple = ({
             <div className="flex flex-col gap-5 px-4 lg:px-5">
                 {logo ?? <UntitledLogo className="h-6" />}
 
-                {/* Mobile search input */}
-                <Input size="md" aria-label="Search" placeholder="Search" icon={SearchLg} className="md:hidden" />
+                {/* [Meraki] `search` slot replaces the default inputs when provided. */}
+                {search ?? (
+                    <>
+                        {/* Mobile search input */}
+                        <Input size="md" aria-label="Search" placeholder="Search" icon={SearchLg} className="md:hidden" />
 
-                {/* Desktop search input */}
-                <Input shortcut size="sm" aria-label="Search" placeholder="Search" icon={SearchLg} className="max-md:hidden" />
+                        {/* Desktop search input */}
+                        <Input shortcut size="sm" aria-label="Search" placeholder="Search" icon={SearchLg} className="max-md:hidden" />
+                    </>
+                )}
             </div>
 
             <NavList activeUrl={activeUrl} items={items} />

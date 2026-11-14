@@ -14,6 +14,7 @@ import { CURRENT_USER, ROLE_LABEL, TODAY, getDigest, locationName, users } from 
 import type { DigestPeriod, LocationId, Role, User } from "@/data/types";
 import { addDays, formatDate, toDate } from "@/engine/dates";
 import { digestSubject } from "@/engine/digest";
+import { useUrlSync } from "@/utils/url-sync";
 
 type Scope = LocationId | "all";
 
@@ -63,6 +64,7 @@ export interface DigestScreenProps {
 export const DigestScreen = ({ period: initialPeriod = "weekly", location: initialScope = "lynnfield" }: DigestScreenProps) => {
     const [period, setPeriod] = useState<DigestPeriod>(initialPeriod);
     const [scope, setScope] = useState<Scope>(validScope(initialPeriod, initialScope));
+    useUrlSync({ period: period === "weekly" ? undefined : period, scope });
     const [shellLocation, setShellLocation] = useState<LocationId>(initialScope === "all" ? "lynnfield" : initialScope);
     const [width, setWidth] = useState<"desktop" | "mobile">("desktop");
     const [enabled, setEnabled] = useState(true);

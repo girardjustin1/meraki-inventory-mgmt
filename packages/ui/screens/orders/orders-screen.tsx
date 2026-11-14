@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronRight, Plus } from "@untitledui/icons";
+import { Check, ChevronRight, Plus, Send01 } from "@untitledui/icons";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Tabs } from "@/components/application/tabs/tabs";
 import { Badge } from "@/components/base/badges/badges";
@@ -12,8 +12,10 @@ import { OrderStatusBadge, SampleBadge } from "@/components/meraki/status-badges
 import { TODAY, locationName, orderTotal, purchaseOrders, vendorById } from "@/data/inventory";
 import type { LocationId, PurchaseOrder, PurchaseOrderStatus } from "@/data/types";
 import { formatDate, formatMonth } from "@/engine/dates";
+import { ordersToSend } from "@/engine/order-send";
 import { formatCurrency } from "@/engine/stock";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 export type OrdersTab = "action" | "open" | "received" | "all";
 
@@ -152,9 +154,12 @@ export const OrdersScreen = ({ location: initialLocation = "lynnfield", tab: ini
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const here = purchaseOrders.filter((po) => po.locationId === location);
     const count = (t: OrdersTab) => here.filter((po) => inTab(po, t)).length;
+    /** Orders that can go to a vendor now: everything not yet sent, less those still waiting for approval. */
+    const readyToSend = ordersToSend(purchaseOrders, location).filter((po) => po.status !== "awaiting-approval").length;
     const [tab, setTab] = useState<OrdersTab>(
         initialTab ?? (purchaseOrders.some((po) => po.locationId === initialLocation && inTab(po, "action")) ? "action" : "open"),
     );
+    useUrlSync({ tab });
 
     const rows = here.filter((po) => inTab(po, tab));
     const cycles = [...new Set(rows.map((po) => po.cycle))].sort((a, b) => b.localeCompare(a));
@@ -172,9 +177,22 @@ export const OrdersScreen = ({ location: initialLocation = "lynnfield", tab: ini
                     }
                     description={`One order per vendor, per month, for ${locationName(location)}. 2026 orders were imported from the backlog spreadsheet.`}
                     actions={
-                        <Button href={ROUTES.newOrder} color="primary" size="md" iconLeading={Plus} className="max-lg:hidden">
-                            New order
-                        </Button>
+                        <>
+                            <Button href={ROUTES.sendOrders} color="secondary" size="md" iconLeading={Send01}>
+                                Send orders
+                                {readyToSend > 0 && (
+                                    <span
+                                        aria-label={`${readyToSend} ready to send`}
+                                        className="ml-1.5 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary tabular-nums ring-1 ring-secondary ring-inset"
+                                    >
+                                        {readyToSend}
+                                    </span>
+                                )}
+                            </Button>
+                            <Button href={ROUTES.newOrder} color="primary" size="md" iconLeading={Plus} className="max-lg:hidden">
+                                New order
+                            </Button>
+                        </>
                     }
                 />
 

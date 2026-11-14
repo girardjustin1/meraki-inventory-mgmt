@@ -11,7 +11,8 @@ const Wrapper = (Story: ComponentType) => {
             event.stopPropagation();
             event.preventDefault();
 
-            alert("Form submitted!");
+            // [Meraki] Log instead of alert(): a blocking dialog freezes automated browser checks.
+            console.log("Form submit prevented in Storybook");
         };
 
         window.addEventListener("submit", handler);

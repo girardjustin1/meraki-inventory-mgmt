@@ -17,7 +17,9 @@ import { CURRENT_USER, TODAY, getItem, getPurchaseOrder, locationName, purchaseO
 import type { LocationId, PurchaseOrder, PurchaseOrderLine, User } from "@/data/types";
 import { daysBetween, formatDate } from "@/engine/dates";
 import { FLAG_THRESHOLDS } from "@/engine/flags";
+import { can } from "@/engine/permissions";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 export interface ReceiveScreenProps {
     location?: LocationId;
@@ -462,7 +464,7 @@ const ReceiveOrder = ({ po, user, prefill, onBack }: { po: PurchaseOrder; user: 
     const flags = over + mismatched;
     const stillOpen = stats.filter((s) => !s.complete && !s.over).length;
     const allReceived = complete === receivable.length && receivable.length > 0;
-    const others = users.filter((u) => u.id !== po.createdBy && u.locations.includes(po.locationId) && u.role !== "owner").slice(0, 2);
+    const others = users.filter((u) => u.id !== po.createdBy && u.role !== "owner" && can(u, "orders.receive", po.locationId)).slice(0, 2);
 
     const back = (
         <button
@@ -737,6 +739,7 @@ export const ReceiveScreen = ({ location: initialLocation = "lynnfield", orderId
     const initialOrder = initialOrderId ? getPurchaseOrder(initialOrderId) : undefined;
     const [location, setLocation] = useState<LocationId>(initialOrder?.locationId ?? initialLocation);
     const [orderId, setOrderId] = useState<string | undefined>(initialOrder?.id);
+    useUrlSync({ order: orderId });
     const user = userProp ?? frontDesk(location);
     const po = orderId ? getPurchaseOrder(orderId) : undefined;
 

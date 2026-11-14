@@ -1,23 +1,8 @@
 "use client";
 
-import type { FC, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useState } from "react";
-import {
-    ArrowLeft,
-    ArrowRight,
-    Check,
-    CheckCircle,
-    Copy01,
-    Globe01,
-    Mail01,
-    Minus,
-    Plus,
-    Printer,
-    Send01,
-    ShoppingBag01,
-    Trash01,
-    Truck01,
-} from "@untitledui/icons";
+import { ArrowLeft, ArrowRight, Check, CheckCircle, Minus, Plus, Send01, Trash01, Truck01 } from "@untitledui/icons";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Badge } from "@/components/base/badges/badges";
@@ -26,13 +11,18 @@ import { TextArea } from "@/components/base/textarea/textarea";
 import { AppShell, Card, CardHeader, PageContent, PageHeader, ROUTES, SampleDataNote, initials } from "@/components/meraki/app-shell";
 import { FlagCard } from "@/components/meraki/flag-card";
 import { ItemThumb } from "@/components/meraki/item-thumb";
+import { NoteThread } from "@/components/meraki/note-thread";
 import { OrderProgress } from "@/components/meraki/order-progress";
+import { SENT_VIA_LABEL, SendMethodPanel } from "@/components/meraki/send-method-panel";
+import { SendOptionList, bestSendOption } from "@/components/meraki/send-option-list";
 import { OrderStatusBadge, SampleBadge } from "@/components/meraki/status-badges";
-import { CURRENT_USER, TODAY, flags, getItem, locationName, purchaseOrders, userById, vendorById } from "@/data/inventory";
+import { CURRENT_USER, TODAY, flags, getItem, locationName, purchaseOrders, userById, users, vendorById } from "@/data/inventory";
 import type { LocationId, OrderChannel, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, User } from "@/data/types";
 import { formatDate, formatMonth } from "@/engine/dates";
+import type { SendMethod } from "@/engine/order-send";
+import { ordersToSend } from "@/engine/order-send";
+import { can, isAdmin } from "@/engine/permissions";
 import { formatCurrency } from "@/engine/stock";
-import { useClipboard } from "@/hooks/use-clipboard";
 import { cx } from "@/utils/cx";
 
 const LINE_PAGE = 50;
@@ -45,46 +35,6 @@ const CHANNEL_LABEL: Record<OrderChannel, string> = {
     "in-store": "Bought in person",
     api: "Amazon Business API",
     internal: "Internal transfer",
-};
-
-/** What "send" means for each vendor channel. */
-const CHANNEL_SEND: Record<OrderChannel, { title: string; body: string; action: string; icon: FC<{ className?: string }>; sent: string; planned?: boolean }> = {
-    "email-po": {
-        title: "Email a purchase order",
-        body: "A PDF purchase order is emailed to the vendor contact through Resend, with a copy to the owner. Replies come back to the manager who created it.",
-        action: "Email purchase order",
-        icon: Mail01,
-        sent: "Purchase order emailed to the vendor.",
-    },
-    portal: {
-        title: "Order on the vendor portal",
-        body: "Open the vendor's ordering portal and enter the lines there. Copy the item list first so it can be pasted or read off beside the portal.",
-        action: "Open vendor portal",
-        icon: Globe01,
-        sent: "Marked as placed on the vendor portal.",
-    },
-    "in-store": {
-        title: "Pick list for the store run",
-        body: "This vendor is bought in person. Print the pick list, or open it on a phone, and tick items off as they go in the cart.",
-        action: "Print pick list",
-        icon: Printer,
-        sent: "Pick list printed and the order marked as placed.",
-    },
-    api: {
-        title: "Place through Amazon Business",
-        body: "Orders will be placed straight from here through the Amazon Business API once the account is approved. Until then, place the order on Amazon and mark it as sent.",
-        action: "Place via Amazon Business",
-        icon: ShoppingBag01,
-        sent: "Marked as placed on Amazon.",
-        planned: true,
-    },
-    internal: {
-        title: "Transfer request to the warehouse",
-        body: "A transfer request goes to the Meraki warehouse, which sends the items from shared back stock. Nothing is bought.",
-        action: "Send transfer request",
-        icon: Truck01,
-        sent: "Transfer request sent to the warehouse.",
-    },
 };
 
 const isSentStatus = (s: PurchaseOrderStatus) => s === "sent" || s === "partially-received" || s === "received";
@@ -186,25 +136,30 @@ const defaultOrder = () => purchaseOrders.find((po) => po.status === "awaiting-a
 interface OrderDetailScreenProps {
     orderId?: string;
     user?: User;
+    /** Status to open on, in place of the order's own (for stories: the sample data has no approved order yet). */
+    status?: PurchaseOrderStatus;
+    /** Way of sending to open on (for stories). Defaults to the best one ready for the vendor. */
+    sendMethod?: SendMethod;
 }
 
-export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailScreenProps) => {
+export const OrderDetailScreen = ({ orderId, user = CURRENT_USER, status: initialStatus, sendMethod }: OrderDetailScreenProps) => {
     const po = purchaseOrders.find((p) => p.id === orderId) ?? defaultOrder();
+    // A story that opens an unapproved order as approved needs an approver and a date to show.
+    const assumedApproval = initialStatus === "approved" && po.status !== "approved" && !po.approvedBy;
     const [location, setLocation] = useState<LocationId>(po.locationId);
-    const [status, setStatus] = useState<PurchaseOrderStatus>(po.status);
+    const [status, setStatus] = useState<PurchaseOrderStatus>(initialStatus ?? po.status);
     const [lines, setLines] = useState<PurchaseOrderLine[]>(po.lines);
-    const [approvedBy, setApprovedBy] = useState(po.approvedBy);
-    const [stamps, setStamps] = useState<{ approved?: string; sent?: string }>({});
+    const [approvedBy, setApprovedBy] = useState(assumedApproval ? users.find((u) => isAdmin(u))?.id : po.approvedBy);
+    const [stamps, setStamps] = useState<{ approved?: string; sent?: string }>(assumedApproval ? { approved: TODAY } : {});
     const [sentBack, setSentBack] = useState<{ note: string; by: string } | null>(null);
     const [sendBackOpen, setSendBackOpen] = useState(false);
     const [note, setNote] = useState("");
     const [noteTried, setNoteTried] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [limit, setLimit] = useState(LINE_PAGE);
-    const { copied, copy } = useClipboard();
 
     const vendor = vendorById(po.vendorId);
-    const send = CHANNEL_SEND[vendor.channel];
+    const [method, setMethod] = useState<SendMethod>(sendMethod ?? bestSendOption(vendor).method);
     const creator = userById(po.createdBy);
     const approver = userById(approvedBy);
     const sent = isSentStatus(status);
@@ -224,8 +179,8 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
     const showNotes = !editable && lines.some((l) => l.note);
 
     const isCreator = user.id === po.createdBy;
-    const canApprove = user.role === "owner" && !isCreator;
-    const canManage = user.role === "owner" || user.role === "manager";
+    const canApprove = can(user, "orders.approve", po.locationId) && !isCreator;
+    const canManage = can(user, "orders.create", po.locationId);
 
     const setQty = (id: string, qty: number) => setLines((prev) => prev.map((l) => (l.id === id ? { ...l, qtyOrdered: qty } : l)));
     const removeLine = (id: string) => setLines((prev) => prev.filter((l) => l.id !== id));
@@ -234,7 +189,13 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
         setStamps((s) => ({ ...s, sent: TODAY }));
         setMessage(text);
     };
-    const itemList = ordered.map((l) => `${l.qtyOrdered} x ${l.name}${l.colorCode ? ` (${l.colorCode})` : ""}${l.variant ? `, ${l.variant}` : ""}`).join("\n");
+    /** Other orders at this location that have not gone to their vendor yet. */
+    const alsoWaiting = ordersToSend(purchaseOrders, po.locationId).filter((o) => o.id !== po.id).length;
+    const sendOrdersLink = alsoWaiting > 0 && (
+        <Button href={ROUTES.sendOrders} color="link-color" size="sm" iconTrailing={ArrowRight} className="self-start max-lg:min-h-11">
+            Send orders: {alsoWaiting} more waiting
+        </Button>
+    );
 
     // ---- approval bar ----------------------------------------------------------------------
     let barText: ReactNode;
@@ -309,7 +270,9 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
             barText = (
                 <>
                     <span className="font-semibold">Waiting for owner approval.</span>{" "}
-                    {user.role === "owner" ? "Orders are approved by someone other than the person who created them." : "Only an owner can approve orders."}
+                    {can(user, "orders.approve")
+                        ? "Orders are approved by someone other than the person who created them."
+                        : "Only an admin can approve orders."}
                 </>
             );
         }
@@ -317,8 +280,8 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
         barTone = "good";
         barText = (
             <>
-                <span className="font-semibold">Approved{approver ? ` by ${approver.name}` : ""}.</span> Ready to send: see &ldquo;How this order is
-                sent&rdquo;.
+                <span className="font-semibold">Approved{approver ? ` by ${approver.name}` : ""}.</span> Ready to send: see &ldquo;How this order is sent&rdquo;
+                below.
             </>
         );
         if (canManage)
@@ -470,6 +433,29 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
 
                 <div className="grid gap-4 lg:grid-cols-3 lg:items-start lg:gap-6">
                     <div className="flex min-w-0 flex-col gap-4 lg:col-span-2 lg:gap-6">
+                        {/* Sending: the working panel, once the order is approved */}
+                        {status === "approved" && canManage && (
+                            <Card className="flex flex-col gap-4">
+                                <CardHeader title="How this order is sent" description="The app prepares the order. A person sends it." />
+                                <SendMethodPanel
+                                    po={{ ...po, lines }}
+                                    vendor={vendor}
+                                    sender={user}
+                                    asker={user}
+                                    method={method}
+                                    onMethodChange={setMethod}
+                                    onSent={(via) =>
+                                        markSent(
+                                            via === "resend"
+                                                ? "Marked as sent by email. Nothing was emailed from the prototype: Resend is not connected."
+                                                : `Marked as sent: ${SENT_VIA_LABEL[via].toLowerCase()}.`,
+                                        )
+                                    }
+                                />
+                                {sendOrdersLink}
+                            </Card>
+                        )}
+
                         {/* Lines */}
                         <Card padded={false} className="overflow-hidden">
                             <div className="p-4 lg:px-5">
@@ -480,7 +466,9 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
                                             ? "Quantities can be changed until the order is submitted."
                                             : sent
                                               ? "What was ordered and what was logged at receiving."
-                                              : "Locked while it waits for approval."
+                                              : status === "approved"
+                                                ? "Approved as shown. Quantities are locked."
+                                                : "Locked while it waits for approval."
                                     }
                                 />
                             </div>
@@ -668,6 +656,18 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
                                 {linkedFlags.length > 4 && <p className="text-sm text-tertiary">{linkedFlags.length - 4} more in the review queue.</p>}
                             </section>
                         )}
+
+                        <Card className="flex flex-col gap-4">
+                            <CardHeader title="Notes" description="Type @ to bring someone in. They are notified and get a link to this order." />
+                            <NoteThread
+                                key={po.id}
+                                subject={{ type: "order", id: po.id }}
+                                subjectTitle={po.number}
+                                href={ROUTES.order(po.id)}
+                                user={user}
+                                location={po.locationId}
+                            />
+                        </Card>
                     </div>
 
                     {/* Side column */}
@@ -733,58 +733,20 @@ export const OrderDetailScreen = ({ orderId, user = CURRENT_USER }: OrderDetailS
                             {vendor.note && <p className="text-sm text-tertiary">{vendor.note}</p>}
                         </Card>
 
-                        <Card className="flex flex-col gap-4">
-                            <CardHeader
-                                title="How this order is sent"
-                                actions={
-                                    send.planned ? (
-                                        <Badge type="color" color="warning" size="sm">
-                                            Planned, not live
-                                        </Badge>
-                                    ) : undefined
-                                }
-                            />
-                            <div className="flex gap-3">
-                                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-secondary text-fg-brand-primary">
-                                    <send.icon className="size-4.5" aria-hidden="true" />
-                                </span>
-                                <div className="flex min-w-0 flex-col gap-1">
-                                    <p className="text-sm font-semibold text-primary">{send.title}</p>
-                                    <p className="text-sm text-tertiary">{send.body}</p>
-                                </div>
-                            </div>
-                            {sent ? (
-                                <p className="text-sm text-tertiary">This order has already been placed.</p>
-                            ) : (
-                                <div className="flex flex-col gap-2">
-                                    <Button
-                                        color="secondary"
-                                        size="md"
-                                        iconLeading={send.icon}
-                                        isDisabled={status !== "approved" || send.planned || !canManage}
-                                        onClick={() => markSent(send.sent)}
-                                    >
-                                        {send.action}
-                                    </Button>
-                                    {(vendor.channel === "portal" || vendor.channel === "api" || vendor.channel === "in-store") && (
-                                        <Button
-                                            color="tertiary"
-                                            size="md"
-                                            iconLeading={copied === "items" ? Check : Copy01}
-                                            onClick={() => copy(itemList, "items")}
-                                        >
-                                            {copied === "items" ? "Copied" : "Copy item list"}
-                                        </Button>
-                                    )}
-                                    {status !== "approved" && <p className="text-xs text-tertiary">Available once the order is approved.</p>}
-                                    {status === "approved" && send.planned && (
-                                        <p className="text-xs text-tertiary">
-                                            Until the API is connected, place the order on Amazon and use &ldquo;Mark as sent&rdquo;.
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                        </Card>
+                        {!(status === "approved" && canManage) && (
+                            <Card className="flex flex-col gap-4">
+                                <CardHeader title="How this order is sent" />
+                                <SendOptionList vendor={vendor} value={method} isDisabled />
+                                <p className="text-sm text-tertiary">
+                                    {sent
+                                        ? "This order has already been placed."
+                                        : status === "approved"
+                                          ? "Managers and owners send orders."
+                                          : "Available once the order is approved."}
+                                </p>
+                                {sendOrdersLink}
+                            </Card>
+                        )}
 
                         <Card className="flex flex-col gap-4">
                             <CardHeader title="Status" />

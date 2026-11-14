@@ -21,6 +21,7 @@ import { relativeDays } from "@/engine/dates";
 import { formatQty } from "@/engine/stock";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 type TabId = "supplies" | "polish" | "tips";
 type StatusFilter = "all" | "out" | "low" | "over" | "unknown";
@@ -134,20 +135,22 @@ interface SuppliesProps {
     location: LocationId;
     initialStatus: StatusFilter;
     initialReorderOnly: boolean;
+    initialQuery: string;
 }
 
-const SuppliesTab = ({ location, initialStatus, initialReorderOnly }: SuppliesProps) => {
+const SuppliesTab = ({ location, initialStatus, initialReorderOnly, initialQuery }: SuppliesProps) => {
     const isDesktop = useBreakpoint("lg");
     const rows = useMemo(() => stockRows(location, "supply"), [location]);
     const s = summary(location);
 
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(initialQuery);
     const [status, setStatus] = useState<StatusFilter>(initialStatus);
     const [area, setArea] = useState("all");
     const [vendor, setVendor] = useState("all");
     const [category, setCategory] = useState("all");
     const [sort, setSort] = useState<SortId>("urgent");
     const [reorderOnly, setReorderOnly] = useState(initialReorderOnly);
+    useUrlSync({ status: status === "all" ? undefined : status, reorder: reorderOnly ? "1" : undefined, q: query });
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [visible, setVisible] = useState(SUPPLY_PAGE);
     const [exported, setExported] = useState(false);
@@ -515,12 +518,23 @@ const LINES: { id: PolishLine; label: string }[] = [
 
 type Availability = "all" | "in" | "out" | "reorder";
 
-const PolishTab = ({ location, onViewLynnfield }: { location: LocationId; onViewLynnfield: () => void }) => {
+const PolishTab = ({
+    location,
+    onViewLynnfield,
+    initialLine,
+    initialQuery,
+}: {
+    location: LocationId;
+    onViewLynnfield: () => void;
+    initialLine: PolishLine | "all";
+    initialQuery: string;
+}) => {
     const rows = useMemo(() => stockRows(location, "polish"), [location]);
-    const [line, setLine] = useState<PolishLine | "all">("opi");
+    const [line, setLine] = useState<PolishLine | "all">(initialLine);
     const [family, setFamily] = useState("all");
     const [availability, setAvailability] = useState<Availability>("all");
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(initialQuery);
+    useUrlSync({ line: line === "opi" ? undefined : line, q: query });
     const [visible, setVisible] = useState(POLISH_PAGE);
 
     const lineCounts = useMemo(() => {
@@ -952,6 +966,10 @@ interface StockScreenProps {
     initialStatus?: StatusFilter;
     /** Start with "Needs reorder only" switched on. */
     initialReorderOnly?: boolean;
+    /** Search text to start with (deep link `?q=`). */
+    initialQuery?: string;
+    /** Polish line to start on (deep link `?line=`). */
+    initialLine?: PolishLine | "all";
 }
 
 /** Everything on the shelves at one location: supplies, the polish wall and Gel-X tips. */
@@ -960,9 +978,12 @@ export const StockScreen = ({
     initialTab = "supplies",
     initialStatus = "all",
     initialReorderOnly = false,
+    initialQuery = "",
+    initialLine = "opi",
 }: StockScreenProps) => {
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const [tab, setTab] = useState<TabId>(initialTab);
+    useUrlSync({ tab: tab === "supplies" ? undefined : tab, ...(tab === "polish" ? {} : { line: undefined }) });
     const s = summary(location);
     const tips = stockRows(location, "tips").length;
 
@@ -1001,10 +1022,22 @@ export const StockScreen = ({
                     </TabList>
                     <TabPanel id="supplies">
                         {/* Keyed by location so filters and paging start fresh when the salon changes. */}
-                        <SuppliesTab key={location} location={location} initialStatus={initialStatus} initialReorderOnly={initialReorderOnly} />
+                        <SuppliesTab
+                            key={location}
+                            location={location}
+                            initialStatus={initialStatus}
+                            initialReorderOnly={initialReorderOnly}
+                            initialQuery={initialQuery}
+                        />
                     </TabPanel>
                     <TabPanel id="polish">
-                        <PolishTab key={location} location={location} onViewLynnfield={() => setLocation("lynnfield")} />
+                        <PolishTab
+                            key={location}
+                            location={location}
+                            onViewLynnfield={() => setLocation("lynnfield")}
+                            initialLine={initialLine}
+                            initialQuery={initialQuery}
+                        />
                     </TabPanel>
                     <TabPanel id="tips">
                         <TipsTab location={location} onViewLynnfield={() => setLocation("lynnfield")} />

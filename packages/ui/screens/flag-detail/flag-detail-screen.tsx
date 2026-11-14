@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle, InfoCircle, Lock01, MessageTextSquare01, RefreshCcw01, SearchLg, XCircle } from "@untitledui/icons";
+import { ArrowLeft, ArrowRight, CheckCircle, InfoCircle, Lock01, RefreshCcw01, SearchLg, XCircle } from "@untitledui/icons";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Avatar } from "@/components/base/avatar/avatar";
@@ -15,9 +15,11 @@ import { AppShell, Card, CardHeader, PageContent, PageHeader, ROUTES, SampleData
 import { EvidenceList } from "@/components/meraki/evidence-list";
 import { formatDetected } from "@/components/meraki/flag-card";
 import { ItemThumb } from "@/components/meraki/item-thumb";
+import { NoteBody } from "@/components/meraki/note-body";
+import { NoteThread } from "@/components/meraki/note-thread";
 import { FlagSeverityBadge, FlagStatusBadge, OrderStatusBadge, RealDataBadge, SampleBadge } from "@/components/meraki/status-badges";
-import { CURRENT_USER, ROLE_LABEL, TODAY, flags, getItem, getPurchaseOrder, locationName, userById, users, vendorById } from "@/data/inventory";
-import type { Flag, FlagStatus, FlagType, LocationId, User } from "@/data/types";
+import { CURRENT_USER, ROLE_LABEL, TODAY, flags, getItem, getPurchaseOrder, locationName, notesFor, userById, users, vendorById } from "@/data/inventory";
+import type { Flag, FlagStatus, FlagType, LocationId, Note, User } from "@/data/types";
 import { formatDate, formatTime } from "@/engine/dates";
 import { FLAG_TYPE_LABEL } from "@/engine/flags";
 import { cx } from "@/utils/cx";
@@ -41,6 +43,7 @@ export interface FlagEvent {
     /** ISO date or datetime. Missing when the record does not say when it happened. */
     at?: string;
     userId?: string;
+    /** For a note this is the stored body, mention tokens included (see engine/mentions.ts). */
     text?: string;
 }
 
@@ -358,7 +361,6 @@ interface FlagDetailBodyProps {
 /** The whole review of one flag: observation, evidence, next step, linked records, decision, notes and timeline. */
 export const FlagDetailBody = ({ flag, review, user, onAction, layout = "page", showTitle = layout === "panel" }: FlagDetailBodyProps) => {
     const [dialog, setDialog] = useState<"resolve" | "dismiss" | null>(null);
-    const [draft, setDraft] = useState("");
     const [confirmation, setConfirmation] = useState<string | null>(null);
 
     const order = flag.purchaseOrderId ? getPurchaseOrder(flag.purchaseOrderId) : undefined;
@@ -369,17 +371,25 @@ export const FlagDetailBody = ({ flag, review, user, onAction, layout = "page", 
     const namedOnFlag = Boolean(person && person.id === user.id);
     const canReview = canReviewFlags(user);
     const canClose = canReview && !namedOnFlag;
-    const notes = review.events.filter((e) => e.kind === "note");
     const page = layout === "page";
+
+    // Notes live in the thread. Sample notes come from the data layer; notes posted in this session are
+    // also kept as review events, so they survive the thread being closed and reopened (the queue's panel).
+    const subject = { type: "flag" as const, id: flag.id };
+    const seededNotes = notesFor("flag", flag.id);
+    const postedNotes: Note[] = review.events
+        .filter((e) => e.kind === "note")
+        .map((e) => ({ id: e.id, subject, authorId: e.userId ?? "", body: e.text ?? "", createdAt: e.at ?? TODAY }));
+    // The timeline shows every note: sample ones are slotted in by time, ahead of anything done later.
+    const timelineEvents = [...review.events];
+    for (const n of seededNotes) {
+        const later = timelineEvents.findIndex((e, i) => i > 0 && e.at !== undefined && e.at > n.createdAt);
+        timelineEvents.splice(later === -1 ? timelineEvents.length : later, 0, { id: n.id, kind: "note", at: n.createdAt, userId: n.authorId, text: n.body });
+    }
 
     const run = (action: FlagAction, message: string) => {
         onAction(action);
         setConfirmation(message);
-    };
-    const addNote = () => {
-        if (!draft.trim()) return;
-        run({ type: "note", text: draft.trim() }, "Note added.");
-        setDraft("");
     };
 
     const actions = (size: "sm" | "md", stretch?: boolean) => {
@@ -598,39 +608,17 @@ export const FlagDetailBody = ({ flag, review, user, onAction, layout = "page", 
 
     const notesCard = (
         <Card className="flex flex-col gap-4">
-            <CardHeader title="Notes" description="What people checked and found. Notes cannot be edited once added." />
-            {notes.length > 0 ? (
-                <ul className="flex flex-col gap-3">
-                    {notes.map((n) => {
-                        const author = userById(n.userId);
-                        return (
-                            <li key={n.id} className="flex gap-3">
-                                <Avatar size="sm" initials={initials(author?.name ?? "?")} />
-                                <div className="min-w-0 flex-1 rounded-lg bg-secondary px-3 py-2 ring-1 ring-secondary ring-inset">
-                                    <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                                        <span className="font-semibold text-primary">{author?.name ?? "Unknown"}</span>
-                                        <span className="text-xs text-tertiary">{when(n.at)}</span>
-                                    </p>
-                                    <p className="mt-0.5 text-sm break-words text-secondary">{n.text}</p>
-                                </div>
-                            </li>
-                        );
-                    })}
-                </ul>
-            ) : (
-                <p className="flex items-center gap-2 text-sm text-tertiary">
-                    <MessageTextSquare01 className="size-4 text-fg-quaternary" aria-hidden="true" />
-                    No notes yet.
-                </p>
-            )}
-            <div className="flex flex-col gap-2">
-                <TextArea aria-label="Add a note" rows={2} size="sm" value={draft} onChange={setDraft} placeholder="Add what you checked or what you know" />
-                <div className="flex justify-end">
-                    <Button color="secondary" size="sm" isDisabled={!draft.trim()} onClick={addNote}>
-                        Add note
-                    </Button>
-                </div>
-            </div>
+            <CardHeader title="Notes" description="What people checked and found. Type @ to bring someone in. Notes cannot be edited once added." />
+            <NoteThread
+                key={flag.id}
+                subject={subject}
+                subjectTitle={flag.title}
+                href={ROUTES.flag(flag.id)}
+                initialNotes={[...seededNotes, ...postedNotes]}
+                user={user}
+                location={flag.locationId}
+                onPost={(note) => onAction({ type: "note", text: note.body })}
+            />
         </Card>
     );
 
@@ -638,9 +626,9 @@ export const FlagDetailBody = ({ flag, review, user, onAction, layout = "page", 
         <Card className="flex flex-col gap-4">
             <CardHeader title="Timeline" />
             <ol className="flex flex-col">
-                {review.events.map((e, i) => {
+                {timelineEvents.map((e, i) => {
                     const actor = userById(e.userId);
-                    const last = i === review.events.length - 1;
+                    const last = i === timelineEvents.length - 1;
                     return (
                         <li key={e.id} className="relative flex gap-3 pb-4 last:pb-0">
                             {!last && <span aria-hidden="true" className="absolute top-3 bottom-0 left-[5px] w-px bg-border-secondary" />}
@@ -653,7 +641,12 @@ export const FlagDetailBody = ({ flag, review, user, onAction, layout = "page", 
                                     <span className="font-semibold text-primary">{EVENT_VERB[e.kind]}</span>
                                     {e.kind !== "detected" && ` ${actor?.name ?? "someone not recorded"}`}
                                 </p>
-                                {e.text && <p className="text-sm break-words text-tertiary">{e.text}</p>}
+                                {e.text &&
+                                    (e.kind === "note" ? (
+                                        <NoteBody body={e.text} viewerId={user.id} className="text-tertiary" />
+                                    ) : (
+                                        <p className="text-sm break-words text-tertiary">{e.text}</p>
+                                    ))}
                                 <p className="text-xs text-quaternary">{when(e.at)}</p>
                             </div>
                         </li>

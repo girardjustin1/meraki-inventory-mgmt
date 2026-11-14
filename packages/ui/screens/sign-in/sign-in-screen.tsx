@@ -85,9 +85,10 @@ export const SignInScreen = ({
                                 <div className="flex min-w-0 flex-col gap-1">
                                     <p className="text-sm font-semibold text-primary">This Google account has not been invited</p>
                                     <p className="text-sm text-secondary">
-                                        You signed in as <span className="font-medium break-all">{attemptedEmail}</span>. Ask the owner to invite that address,
-                                        or use the Google account your invitation was sent to.
+                                        You signed in as <span className="font-medium break-all">{attemptedEmail}</span>. Use the Google account your invitation
+                                        was sent to.
                                     </p>
+                                    <p className="text-sm text-secondary">Ask an admin at your location to send you an invite.</p>
                                 </div>
                             </div>
                         )}
@@ -111,6 +112,8 @@ export const SignInScreen = ({
                         <p className="text-center text-sm text-tertiary">
                             Access is limited to invited Meraki staff. There is no password to remember: Google confirms it is you.
                         </p>
+
+                        <p className="text-center text-sm text-quaternary">Have an invite link? Open it to create your account.</p>
 
                         {demoNote && (
                             <p role="status" className="rounded-lg bg-secondary px-3 py-2 text-center text-xs text-tertiary ring-1 ring-secondary ring-inset">

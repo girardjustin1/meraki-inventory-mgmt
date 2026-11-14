@@ -29,6 +29,7 @@ import type { LocationId, ReasonCode } from "@/data/types";
 import { addDays, formatDate, formatTime, relativeDays } from "@/engine/dates";
 import { FLAG_TYPE_LABEL } from "@/engine/flags";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 export type ActivityType = "count" | "receive" | "adjust" | "order" | "flag";
 type Tone = "blue" | "success" | "warning" | "error" | "brand" | "gray";
@@ -300,17 +301,27 @@ const Markers = ({ row }: { row: LogRow }) => (
 // ------------------------------------------------------------------------------------ screen
 
 interface ActivityScreenProps {
+    /** Date range to start with (deep link `?range=`). */
+    initialRange?: Range;
+    /** Person filter to start with (deep link `?person=`). */
+    initialPerson?: string;
     location?: LocationId;
     /** Type filter to start with. */
     type?: ActivityType;
 }
 
-export const ActivityScreen = ({ location: initialLocation = "lynnfield", type: initialType }: ActivityScreenProps) => {
+export const ActivityScreen = ({
+    location: initialLocation = "lynnfield",
+    type: initialType,
+    initialRange = "all",
+    initialPerson = "all",
+}: ActivityScreenProps) => {
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const [scope, setScope] = useState<LocationId | "all">(initialLocation);
     const [type, setType] = useState<ActivityType | "all">(initialType ?? "all");
-    const [person, setPerson] = useState("all");
-    const [range, setRange] = useState<Range>("all");
+    const [person, setPerson] = useState(initialPerson);
+    const [range, setRange] = useState<Range>(initialRange);
+    useUrlSync({ type: type === "all" ? undefined : type, person: person === "all" ? undefined : person, range: range === "all" ? undefined : range });
     const [limit, setLimit] = useState(PAGE);
     const [exported, setExported] = useState(false);
 

@@ -1,17 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { FC, ReactNode } from "react";
 import {
     BarChartSquare02,
     Bell01,
+    CheckSquare,
     ClipboardCheck,
     Flag01,
     HomeLine,
+    LineChartUp01,
     Mail01,
     Menu01,
     Package,
     QrCode02,
     ReceiptCheck,
+    SearchLg,
     Settings01,
     ShoppingCart01,
     Truck01,
@@ -21,10 +25,15 @@ import type { NavItemDividerType, NavItemType } from "@/components/application/a
 import { SidebarNavigationSimple } from "@/components/application/app-navigation/sidebar-navigation/sidebar-simple";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Badge } from "@/components/base/badges/badges";
+import { Select } from "@/components/base/select/select";
 import { MerakiLogo } from "@/components/foundations/logo/meraki-logo";
-import { CURRENT_USER, ROLE_LABEL, summary } from "@/data/inventory";
+import { CURRENT_USER, ROLE_LABEL, locations, notificationsForUser, summary, tasksFor, users } from "@/data/inventory";
 import type { LocationId, User } from "@/data/types";
+import { ACCESS_LABEL, can, isAdmin, visibleLocations } from "@/engine/permissions";
 import { cx } from "@/utils/cx";
+import { useRememberLocation, useUrlSync } from "@/utils/url-sync";
+import { useViewer, useViewerSwitch } from "@/utils/viewer";
+import { CommandMenu, CommandMenuTrigger } from "./command-menu";
 import { LocationSwitcher } from "./location-switcher";
 
 /** Every route in the app. Screens link with these so Storybook and the Next.js app stay in step. */
@@ -38,8 +47,9 @@ export const ROUTES = {
     orders: "/orders",
     order: (id: string) => `/orders/${id}`,
     newOrder: "/orders/new",
+    sendOrders: "/orders/send",
     receive: "/receive",
-    receiveOrder: (id: string) => `/receive/${id}`,
+    receiveOrder: (id: string) => `/receive?order=${encodeURIComponent(id)}`,
     flags: "/flags",
     flag: (id: string) => `/flags/${id}`,
     activity: "/activity",
@@ -47,7 +57,12 @@ export const ROUTES = {
     digest: "/digest",
     team: "/settings/team",
     settings: "/settings",
+    insights: "/insights",
+    notifications: "/notifications",
+    tasks: "/tasks",
+    task: (id: string) => `/tasks/${id}`,
     more: "/more",
+    invite: (token: string) => `/invite/${token}`,
     signIn: "/sign-in",
     lock: "/lock",
 } as const;
@@ -59,23 +74,41 @@ const count = (n: number, color: "gray" | "error" | "warning" = "gray") =>
         </Badge>
     ) : undefined;
 
-export const buildNav = (location: LocationId): (NavItemType | NavItemDividerType)[] => {
+/** Sidebar navigation for one person: entries they have no permission for are left out. */
+export const buildNav = (location: LocationId, user: User = CURRENT_USER): (NavItemType | NavItemDividerType)[] => {
     const s = summary(location);
-    return [
+    const openTasks = tasksFor(user.id).filter((t) => t.status === "assigned" || t.status === "accepted" || t.status === "in-progress").length;
+    const work: (NavItemType | false)[] = [
         { label: "Home", href: ROUTES.home, icon: HomeLine },
         { label: "Stock", href: ROUTES.stock, icon: Package, badge: count(s.low + s.out, "warning") },
         { label: "Scan", href: ROUTES.scan, icon: QrCode02 },
-        { label: "Counts", href: ROUTES.counts, icon: ClipboardCheck, badge: count(s.countsDue) },
-        { label: "Orders", href: ROUTES.orders, icon: ShoppingCart01, badge: count(s.awaitingApproval) },
-        { label: "Receive", href: ROUTES.receive, icon: Truck01, badge: count(s.openOrders) },
-        { label: "Flags", href: ROUTES.flags, icon: Flag01, badge: count(s.openFlags, s.highFlags ? "error" : "gray") },
-        { divider: true },
-        { label: "Reports", href: ROUTES.reports, icon: BarChartSquare02 },
-        { label: "Digests", href: ROUTES.digest, icon: Mail01 },
-        { label: "Activity", href: ROUTES.activity, icon: ReceiptCheck },
+        can(user, "stock.count") && { label: "Counts", href: ROUTES.counts, icon: ClipboardCheck, badge: count(s.countsDue) },
+        can(user, "orders.view") && { label: "Orders", href: ROUTES.orders, icon: ShoppingCart01, badge: count(s.awaitingApproval) },
+        can(user, "orders.receive") && { label: "Receive", href: ROUTES.receive, icon: Truck01, badge: count(s.openOrders) },
+        { label: "Tasks", href: ROUTES.tasks, icon: CheckSquare, badge: count(openTasks) },
+        can(user, "flags.view") && { label: "Flags", href: ROUTES.flags, icon: Flag01, badge: count(s.openFlags, s.highFlags ? "error" : "gray") },
+    ];
+    const insight: (NavItemType | false)[] = [
+        can(user, "reports.view") && { label: "Insights", href: ROUTES.insights, icon: LineChartUp01 },
+        can(user, "reports.view") && { label: "Reports", href: ROUTES.reports, icon: BarChartSquare02 },
+        can(user, "digests.view") && { label: "Digests", href: ROUTES.digest, icon: Mail01 },
+        can(user, "activity.view") && { label: "Activity", href: ROUTES.activity, icon: ReceiptCheck },
+    ];
+    const second = insight.filter((i): i is NavItemType => Boolean(i));
+    return [...work.filter((i): i is NavItemType => Boolean(i)), ...(second.length ? [{ divider: true as const }, ...second] : [])];
+};
+
+/** Footer navigation: notifications, team (read-only for users) and, for admins, settings. */
+export const buildFooterNav = (user: User = CURRENT_USER): NavItemType[] => {
+    const unread = notificationsForUser(user.id).filter((n) => !n.readAt).length;
+    return [
+        { label: "Notifications", href: ROUTES.notifications, icon: Bell01, badge: count(unread, "error") },
+        { label: "Team", href: ROUTES.team, icon: Users01 },
+        ...(can(user, "settings.manage") ? [{ label: "Settings", href: ROUTES.settings, icon: Settings01 }] : []),
     ];
 };
 
+/** @deprecated Use buildFooterNav(user). Kept for stories that import it. */
 export const FOOTER_NAV: NavItemType[] = [
     { label: "Team", href: ROUTES.team, icon: Users01 },
     { label: "Settings", href: ROUTES.settings, icon: Settings01 },
@@ -91,7 +124,7 @@ interface TabItem {
 
 /**
  * Mobile bottom tabs. Five labelled tabs with Scan in the centre, per the Mobbin research.
- * Flags are reached from the bell in the top bar; everything else lives under More.
+ * Notifications are reached from the bell in the top bar; everything else lives under More.
  */
 export const MOBILE_TABS: TabItem[] = [
     { label: "Home", href: ROUTES.home, icon: HomeLine },
@@ -149,6 +182,7 @@ interface AppShellProps {
     activeUrl?: string;
     location?: LocationId;
     onLocationChange?: (location: LocationId) => void;
+    /** Defaults to the person using the app (see utils/viewer.tsx). */
     user?: User;
     /** Hide the mobile top bar and tabs for full-screen tasks (scanner, counting, PIN). */
     immersive?: boolean;
@@ -157,11 +191,49 @@ interface AppShellProps {
 
 /**
  * App frame.
- * Desktop: fixed sidebar with the location switcher and the signed-in user.
- * Mobile: slim top bar (logo, location, alerts) and a bottom tab bar sized for thumbs.
+ * Desktop: fixed sidebar with the location switcher, search and the signed-in user.
+ * Mobile: slim top bar (logo, location, search, notifications) and a bottom tab bar sized for thumbs.
+ * Navigation shows only what the person has permission for. Cmd+K opens the command menu.
  */
-export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationChange, user = CURRENT_USER, immersive, children }: AppShellProps) => {
-    const s = summary(location);
+export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationChange, user: userProp, immersive, children }: AppShellProps) => {
+    // A screen can pass the person explicitly (stories do); otherwise it is whoever is using the app.
+    const viewer = useViewer();
+    const switchViewer = useViewerSwitch();
+    const user = userProp ?? viewer;
+    const [searchOpen, setSearchOpen] = useState(false);
+    const unread = notificationsForUser(user.id).filter((n) => !n.readAt).length;
+    const allowed = visibleLocations(
+        user,
+        locations.map((l) => l.id),
+    );
+
+    // Cmd+K / Ctrl+K anywhere, and "/" when not typing, open the command menu.
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            const key = event.key.toLowerCase();
+            if ((event.metaKey || event.ctrlKey) && !event.altKey && key === "k") {
+                event.preventDefault();
+                setSearchOpen((open) => !open);
+                return;
+            }
+            const target = event.target as HTMLElement | null;
+            const typing = target ? target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName) : false;
+            if (key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                event.preventDefault();
+                setSearchOpen(true);
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
+
+    // In the app, the salon being viewed is part of the link and is remembered between pages.
+    useUrlSync({ loc: location });
+    useRememberLocation(location);
+
+    const switcher = (size: "sm" | "md") =>
+        allowed.length > 1 ? <LocationSwitcher value={location} onChange={onLocationChange} size={size} options={allowed} /> : null;
+
     return (
         <div className="flex min-h-dvh flex-col bg-secondary_alt lg:flex-row">
             <div className="hidden lg:contents">
@@ -169,37 +241,74 @@ export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationCh
                     logo={
                         <div className="flex flex-col gap-4">
                             <MerakiLogo className="h-7 self-start" />
-                            <LocationSwitcher value={location} onChange={onLocationChange} />
+                            {switcher("sm")}
                         </div>
                     }
+                    search={<CommandMenuTrigger onPress={() => setSearchOpen(true)} />}
                     activeUrl={activeUrl}
-                    items={buildNav(location) as NavItemType[]}
-                    footerItems={FOOTER_NAV}
+                    items={buildNav(location, user) as NavItemType[]}
+                    footerItems={buildFooterNav(user)}
                     showAccountCard={false}
                     featureCard={
-                        <div className="flex items-center gap-3 border-t border-secondary pt-4">
-                            <Avatar size="md" initials={initials(user.name)} />
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-primary">{user.name}</p>
-                                <p className="truncate text-sm text-tertiary">{ROLE_LABEL[user.role]}</p>
+                        <div className="flex flex-col gap-3 border-t border-secondary pt-4">
+                            <div className="flex items-center gap-3">
+                                <Avatar size="md" initials={initials(user.name)} />
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-primary">{user.name}</p>
+                                    <p className="truncate text-sm text-tertiary">
+                                        {ROLE_LABEL[user.role]}
+                                        {isAdmin(user) && user.role !== "owner" ? ` · ${ACCESS_LABEL.admin}` : ""}
+                                    </p>
+                                </div>
                             </div>
+                            {/* Prototype only: there is no sign-in yet, so let the reviewer see the app as each sample person. */}
+                            {switchViewer && (
+                                <Select
+                                    aria-label="View the prototype as"
+                                    size="sm"
+                                    items={users.map((u) => ({
+                                        id: u.id,
+                                        label: u.name,
+                                        supportingText: `${ROLE_LABEL[u.role]}${isAdmin(u) ? ", admin" : ""}`,
+                                    }))}
+                                    value={user.id}
+                                    onChange={(key) => {
+                                        if (key) switchViewer(String(key));
+                                    }}
+                                    hint="Prototype: view as another person"
+                                >
+                                    {(item) => (
+                                        <Select.Item id={item.id} supportingText={item.supportingText}>
+                                            {item.label}
+                                        </Select.Item>
+                                    )}
+                                </Select>
+                            )}
                         </div>
                     }
                 />
             </div>
 
             {!immersive && (
-                <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-secondary bg-primary/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
-                    <MerakiLogo className="h-6" />
-                    <div className="flex items-center gap-1">
-                        <LocationSwitcher value={location} onChange={onLocationChange} size="sm" />
+                <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-secondary bg-primary/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+                    <MerakiLogo className="h-6 shrink-0" />
+                    <div className="flex min-w-0 items-center gap-0.5">
+                        {switcher("sm")}
+                        <button
+                            type="button"
+                            onClick={() => setSearchOpen(true)}
+                            aria-label="Search products, orders and pages"
+                            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring hover:bg-primary_hover focus-visible:outline-2"
+                        >
+                            <SearchLg className="size-5" aria-hidden="true" />
+                        </button>
                         <a
-                            href={ROUTES.flags}
-                            aria-label={`${s.openFlags} open flags`}
-                            className="relative flex size-10 items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring hover:bg-primary_hover focus-visible:outline-2"
+                            href={ROUTES.notifications}
+                            aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+                            className="relative flex size-10 shrink-0 items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring hover:bg-primary_hover focus-visible:outline-2"
                         >
                             <Bell01 className="size-5" aria-hidden="true" />
-                            {s.highFlags > 0 && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-error-solid ring-2 ring-bg-primary" />}
+                            {unread > 0 && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-error-solid ring-2 ring-bg-primary" />}
                         </a>
                     </div>
                 </header>
@@ -208,6 +317,8 @@ export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationCh
             <main className={cx("min-w-0 flex-1", !immersive && "pb-24 lg:pb-0")}>{children}</main>
 
             {!immersive && <MobileTabBar activeUrl={activeUrl} location={location} />}
+
+            <CommandMenu isOpen={searchOpen} onOpenChange={setSearchOpen} location={location} user={user} />
         </div>
     );
 };

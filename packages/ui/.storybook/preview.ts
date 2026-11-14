@@ -17,7 +17,7 @@ export const parameters = {
                 "Meraki",
                 ["Introduction", "Foundations", "*"],
                 "Screens",
-                ["Overview", "Stock", "Scan", "Counts", "Orders", "Receiving", "Flags", "Activity", "Reports", "Digests", "Settings", "Auth", "*"],
+                ["Overview", "Stock", "Scan", "Counts", "Orders", "Receiving", "Tasks", "Flags", "Notifications", "Activity", "Insights", "Reports", "Digests", "Settings", "Auth", "*"],
                 "Base components",
                 "Application",
                 "Foundations",

@@ -16,6 +16,7 @@ import { QuantityStepper, quantityText, unitWord } from "@/components/meraki/qua
 import { describeCode, labelCodeForItem, lookupCode, shelfLabel } from "@/components/meraki/scan-lookup";
 import { countSessions, getCountSession, getItem, getStock, locationName, userById, users } from "@/data/inventory";
 import type { CountSession, FillLevel, Item, StockLevel } from "@/data/types";
+import { can } from "@/engine/permissions";
 import { FILL_FRACTION, FILL_LABEL } from "@/engine/stock";
 import { cx } from "@/utils/cx";
 
@@ -239,9 +240,7 @@ export const CountSessionScreen = ({ sessionId = "cs-lyn-cleaning", initialStep 
         groups.set(key, [...(groups.get(key) ?? []), line]);
     }
 
-    const reviewers = users
-        .filter((u) => u.id !== session.assignedTo && (u.role === "manager" || u.role === "owner") && u.locations.includes(session.locationId))
-        .map((u) => u.name);
+    const reviewers = users.filter((u) => u.id !== session.assignedTo && can(u, "counts.approve", session.locationId)).map((u) => u.name);
 
     // A handful of this count's labels for the simulated scanner, plus one item from another shelf and one unknown code.
     const sample = [lines[5], lines[6], lines[0], lines[lines.length - 1]].flatMap((l) => (l ? [labelCodeForItem(l.item.id)] : []));

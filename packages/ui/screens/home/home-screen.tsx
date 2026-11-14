@@ -29,6 +29,7 @@ import {
 import type { Flag, LocationId, User } from "@/data/types";
 import { daysBetween, formatDate, formatTime, relativeDays, toDate } from "@/engine/dates";
 import { FLAG_TYPE_LABEL } from "@/engine/flags";
+import { can, isAdmin } from "@/engine/permissions";
 import { formatCount, formatCurrency, formatQty } from "@/engine/stock";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
@@ -127,11 +128,11 @@ const buildTasks = (loc: LocationId, user: User): Task[] => {
               .map((po) => ({
                   id: po.id,
                   icon: ShoppingCart01,
-                  tone: user.role === "owner" ? "warning" : "neutral",
-                  title: user.role === "owner" ? `Approve ${po.number}` : `${po.number} is waiting for approval`,
+                  tone: can(user, "orders.approve") ? "warning" : "neutral",
+                  title: can(user, "orders.approve") ? `Approve ${po.number}` : `${po.number} is waiting for approval`,
                   meta: `${vendorById(po.vendorId).name} · ${plural(po.lines.length, "line")}${canSeeCosts ? ` · about ${formatCurrency(orderTotal(po))} at sample costs` : ""} · sent ${relativeDays(po.createdAt, TODAY)}`,
                   href: ROUTES.order(po.id),
-                  action: user.role === "owner" ? "Approve" : "View",
+                  action: can(user, "orders.approve") ? "Approve" : "View",
               }));
 
     const drafts = orders.filter((po) => po.status === "draft");
@@ -170,7 +171,7 @@ const buildTasks = (loc: LocationId, user: User): Task[] => {
           ]
         : [];
 
-    if (user.role === "owner") return [...approvalTasks, ...reviewTasks, ...countTasks, ...draftTasks, ...deliveryTasks];
+    if (isAdmin(user)) return [...approvalTasks, ...reviewTasks, ...countTasks, ...draftTasks, ...deliveryTasks];
     if (floor) return [...countTasks, ...deliveryTasks];
     return [...countTasks, ...reviewTasks, ...approvalTasks, ...draftTasks, ...deliveryTasks];
 };
@@ -284,7 +285,8 @@ export const HomeScreen = ({ location: initialLocation = "lynnfield", user = CUR
     const isDesktop = useBreakpoint("lg");
 
     const s = summary(location);
-    const isOwner = user.role === "owner";
+    // The two-salon comparison and approvals-first layout are for anyone with admin access, not only the owner.
+    const isOwner = isAdmin(user);
     const floor = user.role === "front-desk" || user.role === "technician";
     const tasks = buildTasks(location, user);
     const attention = floor ? [] : topFlags(location, 5);

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, CheckCircle, FilterLines, Minus, Plus, SearchLg } from "@untitledui/icons";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle, FilterLines, Minus, Plus, SearchLg } from "@untitledui/icons";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -12,21 +12,29 @@ import { AppShell, Card, PageContent, PageHeader, ROUTES, SampleDataNote } from 
 import { ItemThumb } from "@/components/meraki/item-thumb";
 import { OrderStatusBadge, SampleBadge } from "@/components/meraki/status-badges";
 import { TODAY, getForecast, getStock, items, locationName, purchaseOrders, reorderSuggestions, vendorById } from "@/data/inventory";
-import type { Forecast, Item, LocationId, OrderChannel, PurchaseOrder, StockLevel, Vendor, VendorId } from "@/data/types";
+import type { Forecast, Item, LocationId, PurchaseOrder, StockLevel, Vendor, VendorId } from "@/data/types";
 import { formatMonth } from "@/engine/dates";
 import { FLAG_THRESHOLDS } from "@/engine/flags";
 import { median } from "@/engine/forecast";
+import { sendOptions } from "@/engine/order-send";
 import { formatCurrency, formatQty } from "@/engine/stock";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 const URGENT_DAYS = 14;
 const LOC_CODE: Record<LocationId, string> = { lynnfield: "LYN", newburyport: "NBP" };
-const CHANNEL_NEXT: Record<OrderChannel, string> = {
-    "email-po": "Emailed to the vendor as a PDF once approved.",
-    portal: "Placed on the vendor portal once approved.",
-    "in-store": "Becomes a pick list for the store run once approved.",
-    api: "Placed on Amazon once approved (API ordering is planned).",
-    internal: "Sent to the warehouse as a transfer request once approved.",
+
+/** How a vendor's order will go out once approved: the first way that is ready, plus any better way that is not ready yet and why. */
+const sendPlan = (vendor: Vendor) => {
+    const options = sendOptions(vendor);
+    const ready = options.find((o) => o.available);
+    const notReady = options.filter((o) => !o.available);
+    return [
+        ready ? `Once approved: ${ready.label.charAt(0).toLowerCase()}${ready.label.slice(1)}.` : "",
+        ...notReady.map((o) => `Not available yet: ${o.label.charAt(0).toLowerCase()}${o.label.slice(1)}. ${o.note ?? ""}`.trim()),
+    ]
+        .filter(Boolean)
+        .join(" ");
 };
 
 /** One row of the builder: a suggestion from the reorder engine, or an item the user added. */
@@ -142,6 +150,10 @@ const cover = (f?: Forecast) =>
 // ------------------------------------------------------------------------------------ screen
 
 interface OrderNewScreenProps {
+    /** Vendor filter to start with (deep link `?vendor=`). */
+    initialVendor?: VendorId | "all";
+    /** Start with only urgent lines (deep link `?urgent=1`). */
+    initialUrgentOnly?: boolean;
     location?: LocationId;
     /** Open on the success state (for stories). */
     created?: boolean;
@@ -149,14 +161,21 @@ interface OrderNewScreenProps {
     quantities?: Record<string, number>;
 }
 
-export const OrderNewScreen = ({ location: initialLocation = "lynnfield", created: initialCreated = false, quantities }: OrderNewScreenProps) => {
+export const OrderNewScreen = ({
+    location: initialLocation = "lynnfield",
+    created: initialCreated = false,
+    quantities,
+    initialVendor = "all",
+    initialUrgentOnly = false,
+}: OrderNewScreenProps) => {
     const [location, setLocationState] = useState<LocationId>(initialLocation);
     const [edits, setEdits] = useState<Record<string, { checked?: boolean; qty?: number }>>(() =>
         Object.fromEntries(Object.entries(quantities ?? {}).map(([id, qty]) => [id, { checked: true, qty }])),
     );
     const [addedIds, setAddedIds] = useState<string[]>([]);
-    const [vendorFilter, setVendorFilter] = useState<VendorId | "all">("all");
-    const [urgentOnly, setUrgentOnly] = useState(false);
+    const [vendorFilter, setVendorFilter] = useState<VendorId | "all">(initialVendor);
+    const [urgentOnly, setUrgentOnly] = useState(initialUrgentOnly);
+    useUrlSync({ vendor: vendorFilter === "all" ? undefined : vendorFilter, urgent: urgentOnly ? "1" : undefined });
     const [query, setQuery] = useState("");
     const [created, setCreated] = useState(initialCreated);
     /** Vendors whose "already on an order" lines are expanded. */
@@ -294,7 +313,7 @@ export const OrderNewScreen = ({ location: initialLocation = "lynnfield", create
                                         <span className="text-sm text-secondary">
                                             {d.vendor.name} · {d.lines} line{d.lines === 1 ? "" : "s"}, {d.units} unit{d.units === 1 ? "" : "s"}
                                         </span>
-                                        <span className="text-xs text-tertiary">{CHANNEL_NEXT[d.vendor.channel]}</span>
+                                        <span className="text-xs text-tertiary">{sendPlan(d.vendor)}</span>
                                     </div>
                                     <span className="flex shrink-0 items-center gap-2 text-md font-semibold text-primary tabular-nums">
                                         {formatCurrency(d.total, true)} <SampleBadge />
@@ -308,6 +327,18 @@ export const OrderNewScreen = ({ location: initialLocation = "lynnfield", create
                                 {flagged} line{flagged === 1 ? " is" : "s are"} well above the usual order size. The owner will see that when approving.
                             </p>
                         )}
+                        <div className="flex flex-col gap-3 rounded-lg bg-secondary p-4 ring-1 ring-secondary ring-inset sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                            <div className="flex min-w-0 flex-col gap-1">
+                                <h3 className="text-sm font-semibold text-primary">Next: send for approval, then send to vendors</h3>
+                                <p className="text-sm text-tertiary">
+                                    Submit each draft from its own page. Once approved, {drafts.length === 1 ? "it goes" : "they go"} out from Send orders, one
+                                    vendor at a time. The app prepares each order and a person sends it.
+                                </p>
+                            </div>
+                            <Button href={ROUTES.sendOrders} color="secondary" size="md" iconTrailing={ArrowRight} className="shrink-0">
+                                Send orders
+                            </Button>
+                        </div>
                         <div className="flex flex-col gap-3 sm:flex-row">
                             <Button href={ROUTES.orders} color="primary" size="md">
                                 Go to orders

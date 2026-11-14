@@ -4,9 +4,12 @@ import type { FC } from "react";
 import { useState } from "react";
 import {
     BarChartSquare02,
+    Bell01,
+    CheckSquare,
     ChevronRight,
     ClipboardCheck,
     Flag01,
+    LineChartUp01,
     Lock01,
     LogOut01,
     Mail01,
@@ -17,10 +20,12 @@ import {
 } from "@untitledui/icons";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Badge } from "@/components/base/badges/badges";
+import { AccessBadge } from "@/components/meraki/access-badge";
 import { AppShell, PageContent, ROUTES, initials } from "@/components/meraki/app-shell";
 import { RoleBadge } from "@/components/meraki/status-badges";
-import { CURRENT_USER, locations, summary } from "@/data/inventory";
+import { CURRENT_USER, locations, notificationsForUser, summary, tasksFor } from "@/data/inventory";
 import type { LocationId, User } from "@/data/types";
+import { can, isAdmin } from "@/engine/permissions";
 import { cx } from "@/utils/cx";
 
 interface Row {
@@ -90,13 +95,34 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const [notice, setNotice] = useState<string>();
     const s = summary(location);
-    const scope =
-        user.locations.length === locations.length
-            ? "Both locations"
-            : user.locations.map((id) => locations.find((l) => l.id === id)?.shortName ?? id).join(", ");
+    const admin = isAdmin(user);
+    const canManageTeam = can(user, "team.manage");
+    const scope = admin
+        ? "Every location"
+        : user.locations.length === locations.length
+          ? "Both locations"
+          : user.locations.map((id) => locations.find((l) => l.id === id)?.shortName ?? id).join(", ");
 
-    const work: Row[] = [
+    const openTasks = tasksFor(user.id).filter((x) => x.status === "assigned" || x.status === "accepted" || x.status === "in-progress").length;
+    const unread = notificationsForUser(user.id).filter((n) => !n.readAt).length;
+    // Rows the person has no permission for are left out, the same as in the desktop sidebar.
+    const allWork: (Row & { needs?: Parameters<typeof can>[1] })[] = [
         {
+            label: "Notifications",
+            hint: unread ? `${unread} unread` : "Mentions, tasks and alerts for you",
+            href: ROUTES.notifications,
+            icon: Bell01,
+            badge: unread ? { text: String(unread), color: "error" } : undefined,
+        },
+        {
+            label: "Tasks",
+            hint: openTasks ? `${plural(openTasks, "task")} assigned to you` : "Pickup runs and things you were asked to do",
+            href: ROUTES.tasks,
+            icon: CheckSquare,
+            badge: openTasks ? { text: String(openTasks), color: "gray" } : undefined,
+        },
+        {
+            needs: "stock.count",
             label: "Counts",
             hint: s.countsDue ? `${plural(s.countsDue, "count")} due in the next 3 days` : "Nothing due in the next 3 days",
             href: ROUTES.counts,
@@ -104,6 +130,7 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
             badge: s.countsDue ? { text: String(s.countsDue), color: "gray" } : undefined,
         },
         {
+            needs: "orders.receive",
             label: "Receive",
             hint: s.openOrders ? `${plural(s.openOrderLines, "line")} still to receive on ${plural(s.openOrders, "order")}` : "No deliveries waiting",
             href: ROUTES.receive,
@@ -111,6 +138,7 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
             badge: s.openOrders ? { text: String(s.openOrders), color: "gray" } : undefined,
         },
         {
+            needs: "flags.view",
             label: "Flags",
             hint: s.openFlags ? `${s.openFlags} open, ${s.highFlags} high severity` : "Nothing to review",
             href: ROUTES.flags,
@@ -118,14 +146,28 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
             badge: s.openFlags ? { text: String(s.openFlags), color: s.highFlags ? "error" : "gray" } : undefined,
         },
     ];
+    const work: Row[] = allWork.filter((r) => !r.needs || can(user, r.needs));
     const insight: Row[] = [
-        { label: "Reports", hint: "Usage, vendors and what the numbers say", href: ROUTES.reports, icon: BarChartSquare02 },
-        { label: "Digests", hint: "The weekly and monthly email", href: ROUTES.digest, icon: Mail01 },
-        { label: "Activity", hint: "Who did what, and when", href: ROUTES.activity, icon: ReceiptCheck },
+        ...(can(user, "reports.view")
+            ? [
+                  { label: "Insights", hint: "Forecasts by product and colour, and what to plan for", href: ROUTES.insights, icon: LineChartUp01 },
+                  { label: "Reports", hint: "Usage, vendors and what the numbers say", href: ROUTES.reports, icon: BarChartSquare02 },
+              ]
+            : []),
+        ...(can(user, "digests.view") ? [{ label: "Digests", hint: "The weekly and monthly email", href: ROUTES.digest, icon: Mail01 }] : []),
+        ...(can(user, "activity.view") ? [{ label: "Activity", hint: "Who did what, and when", href: ROUTES.activity, icon: ReceiptCheck }] : []),
     ];
-    const admin: Row[] = [
-        { label: "Team", hint: "People, roles and PINs", href: ROUTES.team, icon: Users01 },
-        { label: "Settings", hint: "Alerts, flag rules, vendors and security", href: ROUTES.settings, icon: Settings01 },
+    // Team is open to everyone, read-only for users. Settings is for people who can change it.
+    const adminRows: Row[] = [
+        {
+            label: "Team",
+            hint: canManageTeam ? "People, invites, roles and PINs" : "Who you work with and what each role can do",
+            href: ROUTES.team,
+            icon: Users01,
+        },
+        ...(can(user, "settings.manage")
+            ? [{ label: "Settings", hint: "Alerts, flag rules, vendors and security", href: ROUTES.settings, icon: Settings01 }]
+            : []),
     ];
 
     return (
@@ -140,14 +182,15 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
                         <p className="truncate text-sm text-tertiary">{user.email}</p>
                         <div className="flex flex-wrap items-center gap-1.5">
                             <RoleBadge role={user.role} />
+                            <AccessBadge access={admin ? "admin" : "user"} />
                             <span className="text-sm text-tertiary">{scope}</span>
                         </div>
                     </div>
                 </section>
 
                 <Group title="Work" rows={work} />
-                <Group title="Insight" rows={insight} />
-                <Group title="Admin" rows={admin} />
+                {insight.length > 0 && <Group title="Insight" rows={insight} />}
+                <Group title={admin ? "Admin" : "Your team"} rows={adminRows} />
 
                 <section aria-label="Session" className="flex flex-col gap-2">
                     <ul className="divide-y divide-border-secondary overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary">

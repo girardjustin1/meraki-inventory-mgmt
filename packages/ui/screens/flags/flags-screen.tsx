@@ -20,6 +20,7 @@ import { FLAG_THRESHOLDS, FLAG_TYPE_LABEL } from "@/engine/flags";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { FlagDetailBody, canReviewFlags, reviewersFor, useFlagReviews } from "@/screens/flag-detail/flag-detail-screen";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 export type QueueTab = "open" | "reviewing" | "closed";
 type Source = "all" | "real" | "sample";
@@ -210,6 +211,10 @@ const DismissDialog = ({ count, skipped, onClose, onConfirm }: { count: number; 
 // ------------------------------------------------------------------------------------ screen
 
 interface FlagsScreenProps {
+    /** Flag type filter to start with (deep link `?type=`). */
+    initialType?: FlagType | "all";
+    /** Flag to open in the side panel (deep link `?flag=`). */
+    initialFlagId?: string;
     location?: LocationId;
     user?: User;
     /** Tab to open on. */
@@ -226,14 +231,17 @@ export const FlagsScreen = ({
     tab: initialTab = "open",
     severity: initialSeverity = [],
     flags: source = allFlags,
+    initialType = "all",
+    initialFlagId,
 }: FlagsScreenProps) => {
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const [tab, setTab] = useState<QueueTab>(initialTab);
     const [severities, setSeverities] = useState<FlagSeverity[]>(initialSeverity);
-    const [type, setType] = useState<FlagType | "all">("all");
+    const [type, setType] = useState<FlagType | "all">(initialType);
     const [sourceFilter, setSourceFilter] = useState<Source>("all");
     const [mine, setMine] = useState(false);
-    const [activeId, setActiveId] = useState<string | null>(null);
+    const [activeId, setActiveId] = useState<string | null>(initialFlagId ?? null);
+    useUrlSync({ tab: tab === "open" ? undefined : tab, severity: severities.join(","), type: type === "all" ? undefined : type, flag: activeId });
     const [mobileDetail, setMobileDetail] = useState(false);
     const [checked, setChecked] = useState<string[]>([]);
     const [limit, setLimit] = useState(PAGE);

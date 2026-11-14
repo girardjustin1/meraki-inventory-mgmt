@@ -66,6 +66,7 @@ import { suggestOrderQty } from "@/engine/forecast";
 import { FILL_FRACTION, FILL_LABEL, formatCount, formatCurrency, formatQty, stockStatus } from "@/engine/stock";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 const DEFAULT_ITEM = "sup-igel-beauty-non-cleansing-gel-top-coat";
 
@@ -482,6 +483,7 @@ export const ItemDetailScreen = ({
     const [savedMessage, setSavedMessage] = useState<string>();
     const [onOrder, setOnOrder] = useState(false);
     const [tab, setTab] = useState<DetailTab>(initialTab);
+    useUrlSync({ tab: tab === "history" ? undefined : tab });
 
     const baseLedger = useMemo(() => itemLedger(itemId, location), [itemId, location]);
 

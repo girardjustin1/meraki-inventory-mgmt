@@ -46,6 +46,7 @@ import { addDays, addMonths, daysBetween, formatDate, formatMonth, monthKey } fr
 import { formatCount, formatCurrency } from "@/engine/stock";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 // ------------------------------------------------------------------------------------ period
 
@@ -927,6 +928,8 @@ const DataQualityCard = ({ loc }: { loc: LocationId }) => {
 // ------------------------------------------------------------------------------------ screen
 
 export interface ReportsScreenProps {
+    /** Period to start on (deep link `?period=`). */
+    initialPeriod?: Period;
     location?: LocationId;
 }
 
@@ -934,9 +937,10 @@ export interface ReportsScreenProps {
  * Reports: each card leads with the finding in a sentence, shows the chart that backs it, and
  * says whether the numbers come from Meraki's sheets or from the sample layer.
  */
-export const ReportsScreen = ({ location: initialLocation = "lynnfield" }: ReportsScreenProps) => {
+export const ReportsScreen = ({ location: initialLocation = "lynnfield", initialPeriod = "ytd" }: ReportsScreenProps) => {
     const [location, setLocation] = useState<LocationId>(initialLocation);
-    const [period, setPeriod] = useState<Period>("ytd");
+    const [period, setPeriod] = useState<Period>(initialPeriod);
+    useUrlSync({ period: period === "ytd" ? undefined : period });
     const [notice, setNotice] = useState<string>();
 
     const orders = ordersInScope(location, periodStart(period));

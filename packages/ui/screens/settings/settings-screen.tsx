@@ -40,6 +40,7 @@ import { formatDate } from "@/engine/dates";
 import { FLAG_THRESHOLDS } from "@/engine/flags";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
+import { useUrlSync } from "@/utils/url-sync";
 
 export type SettingsTab = "notifications" | "flag-rules" | "vendors" | "locations" | "security" | "integrations" | "data";
 
@@ -839,6 +840,7 @@ export interface SettingsScreenProps {
 export const SettingsScreen = ({ location: initialLocation = "lynnfield", tab: initialTab = "notifications" }: SettingsScreenProps) => {
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const [tab, setTab] = useState<SettingsTab>(initialTab);
+    useUrlSync({ tab: tab === "notifications" ? undefined : tab });
     const isDesktop = useBreakpoint("lg");
 
     return (

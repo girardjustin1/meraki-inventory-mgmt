@@ -16,6 +16,7 @@ import { CURRENT_USER, TODAY, countSessions, getCountSession, getItem, getStock,
 import type { CountSession, Item, StockLevel, User } from "@/data/types";
 import { formatDate, formatTime, relativeDays } from "@/engine/dates";
 import { FLAG_THRESHOLDS } from "@/engine/flags";
+import { can } from "@/engine/permissions";
 import { formatCurrency, variancePct } from "@/engine/stock";
 import { cx } from "@/utils/cx";
 
@@ -186,11 +187,11 @@ export const CountReviewScreen = ({ sessionId = "cs-lyn-closet", user = CURRENT_
 
     const approved = alreadyApproved || approvedNow;
     const ownCount = user.id === session.assignedTo;
-    const hasRole = user.role === "owner" || user.role === "manager";
+    const hasRole = can(user, "counts.approve", session.locationId);
     const submitted = session.status === "submitted" || alreadyApproved;
     const locked = ownCount || !hasRole || !submitted;
     const reviewer = alreadyApproved ? userById(session.approvedBy) : locked ? undefined : user;
-    const others = users.filter((u) => u.id !== user.id && (u.role === "owner" || u.role === "manager") && u.locations.includes(session.locationId));
+    const others = users.filter((u) => u.id !== user.id && can(u, "counts.approve", session.locationId));
 
     const byTab: Record<TabId, Row[]> = {
         unmatched: rows.filter((r) => r.tab === "unmatched"),

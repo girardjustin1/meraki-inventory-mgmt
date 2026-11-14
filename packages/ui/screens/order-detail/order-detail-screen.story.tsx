@@ -29,3 +29,6 @@ export const ReceivedImported: Story = { args: { orderId: receivedImported?.id }
 
 /** July polish order from the backlog: 74 lines, most never marked received, with flags attached. */
 export const PartiallyReceived: Story = { args: { orderId: partiallyReceived?.id } };
+
+/** The November order once approved (shown as approved for this story): the manager sends it from its own page, here by email. */
+export const SendByEmail: Story = { args: { orderId: "lynnfield-2026-11-supply-nail-supply-store", status: "approved", sendMethod: "email" } };
