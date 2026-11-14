@@ -9,6 +9,11 @@ import { addDays, daysBetween, monthKey } from "./dates";
 import { buildDigest } from "./digest";
 import { detectFlags } from "./flags";
 import { confidenceFor, exponentialSmoothing, forecastItem, median, reorderPoint, safetyStock, suggestOrderQty } from "./forecast";
+import { dataReadiness, demandByItem, demandMix, mixShifts, pareto, reorderCalendar, seasonality, serviceCost, slowMovers } from "./insights";
+import { mentionCandidates, mentionedIds, noteToText, notificationsForNote, parseNote } from "./mentions";
+import { cartLink, draftOrderEmail, draftPickList, sendOptions } from "./order-send";
+import { can, grantsFor, isAdmin } from "./permissions";
+import { countMatches, scoreDoc, search } from "./search";
 import { formatCount, stockStatus, variancePct } from "./stock";
 
 const TODAY = "2026-11-14";
@@ -420,5 +425,323 @@ describe("digest", () => {
         assert.ok(d.flags.every((f) => f.locationId === "lynnfield"));
         assert.ok(d.insights.length > 0);
         assert.match(d.headline, /Lynnfield/);
+    });
+});
+
+describe("sending orders", () => {
+    const order = po({
+        number: "PO-LYN-2611-S1",
+        createdAt: "2026-11-12",
+        lines: [
+            { id: "l1", name: "Nugenesis Base Gel (2) Pink - Bottle", qtyOrdered: 12, qtyReceived: 0 },
+            { id: "l2", name: "Funny Bunny", sku: "H22", colorCode: "WH02", variant: "Gel", qtyOrdered: 2, qtyReceived: 0 },
+            { id: "l3", name: "Free-text reminder", qtyOrdered: 0, qtyReceived: 0 },
+        ],
+    });
+
+    it("drafts one email per vendor with every orderable line and no prices", () => {
+        const d = draftOrderEmail({
+            po: order,
+            vendor: { ...vendor, orderEmail: "orders@example.com" },
+            locationName: "Meraki Lynnfield",
+            senderName: "Jordan Blake",
+        });
+        assert.equal(d.to, "orders@example.com");
+        assert.equal(d.subject, "Order PO-LYN-2611-S1 from Meraki Spa, Lynnfield");
+        assert.equal(d.lineCount, 2);
+        assert.equal(d.unitCount, 14);
+        assert.match(d.body, / 12 x {2}Nugenesis Base Gel/);
+        assert.match(d.body, /Funny Bunny \(SKU H22, code WH02, Gel\)/);
+        assert.doesNotMatch(d.body, /Free-text reminder|\$/);
+        assert.ok(d.mailto?.startsWith("mailto:orders%40example.com?subject="));
+    });
+
+    it("drops the mailto link when the order is too long for one", () => {
+        const many = po({
+            lines: Array.from({ length: 80 }, (_, i) => ({ id: `l${i}`, name: `A fairly long product name number ${i}`, qtyOrdered: 1, qtyReceived: 0 })),
+        });
+        const d = draftOrderEmail({ po: many, vendor, locationName: "Meraki Lynnfield", senderName: "Jordan Blake" });
+        assert.equal(d.mailto, undefined);
+        assert.equal(d.lineCount, 80);
+    });
+
+    it("always offers email, and offers the cart link only for stores that support it", () => {
+        assert.deepEqual(
+            sendOptions(vendor).map((o) => o.method),
+            ["pick-list", "email"],
+        );
+        const shopify = sendOptions({ ...vendor, channel: "portal", supportsCartLink: true });
+        assert.equal(shopify[0]?.method, "cart-link");
+        assert.equal(shopify[0]?.available, false);
+        assert.equal(sendOptions({ ...vendor, channel: "api" })[0]?.available, false);
+    });
+
+    it("builds a Shopify cart link and reports lines it could not include", () => {
+        const store = { ...vendor, storeUrl: "https://pro.example.com/", supportsCartLink: true };
+        const r = cartLink(order, store, (l) => (l.id === "l1" ? "4455" : undefined));
+        assert.equal(r.url, "https://pro.example.com/cart/4455:12");
+        assert.equal(r.missing.length, 1);
+        assert.match(draftPickList(order, vendor, "Meraki Lynnfield"), /\[ \] 12 x {2}Nugenesis/);
+    });
+});
+
+describe("permissions", () => {
+    const person = (role: "owner" | "manager" | "front-desk" | "technician", access: "admin" | "user" = "user") => ({
+        role,
+        access,
+        locations: ["lynnfield" as const],
+    });
+
+    it("gives admins everything, everywhere", () => {
+        assert.ok(can(person("technician", "admin"), "team.manage", "newburyport"));
+        assert.ok(isAdmin(person("owner")));
+        assert.equal(grantsFor("admin", "technician").length, grantsFor("user", "owner").length);
+    });
+
+    it("limits users to their role and their locations", () => {
+        assert.ok(can(person("manager"), "counts.approve", "lynnfield"));
+        assert.ok(!can(person("manager"), "counts.approve", "newburyport"));
+        assert.ok(!can(person("manager"), "orders.approve"));
+        assert.ok(!can(person("manager"), "team.manage"));
+        assert.ok(can(person("front-desk"), "orders.receive"));
+        assert.ok(!can(person("front-desk"), "costs.view"));
+        assert.ok(!can(person("technician"), "orders.view"));
+        assert.ok(!can(person("technician"), "flags.view"));
+    });
+});
+
+describe("insights", () => {
+    const pink = item("pk", { kind: "polish", colorFamily: "Pinks", line: "opi", colorCode: "PK01" });
+    const red = item("rd", { kind: "polish", colorFamily: "Reds", line: "opi", colorCode: "RD01" });
+    const blue = item("bl", { kind: "polish", colorFamily: "Blues", line: "opi", colorCode: "BL01" });
+    const line = (id: string, itemId: string, qtyOrdered: number, qtyReceived = qtyOrdered) => ({ id, itemId, name: itemId, qtyOrdered, qtyReceived });
+    const orders = [
+        po({ id: "p1", kind: "polish", cycle: "2026-01", lines: [line("l1", "pk", 2), line("l2", "rd", 6)] }),
+        po({ id: "p2", kind: "polish", cycle: "2026-07", lines: [line("l1", "pk", 6, 3), line("l2", "rd", 2)] }),
+        po({ id: "p3", kind: "polish", cycle: "2026-11", status: "draft", lines: [line("l1", "bl", 9)] }),
+    ];
+    const all = [pink, red, blue];
+
+    it("adds up demand per colour and ignores drafts", () => {
+        const rows = demandByItem(orders, all, { kind: "polish" });
+        assert.equal(rows.length, 2);
+        const pk = rows.find((r) => r.itemId === "pk");
+        assert.equal(pk?.qty, 8);
+        assert.equal(pk?.cycles, 2);
+        assert.equal(pk?.unfilled, 3);
+        assert.deepEqual(pk?.byCycle, { "2026-01": 2, "2026-07": 6 });
+    });
+
+    it("shows how the colour mix shifts between cycles", () => {
+        const rows = demandByItem(orders, all, { kind: "polish" });
+        const mix = demandMix(rows, ["2026-01", "2026-07"], (r) => r.family);
+        const pinks = mix.find((m) => m.group === "Pinks");
+        assert.equal(pinks?.shareByCycle["2026-01"], 0.25);
+        assert.equal(pinks?.shareByCycle["2026-07"], 0.75);
+        assert.equal(mixShifts(mix, ["2026-01", "2026-07"])[0]?.change, 0.5);
+    });
+
+    it("lists stocked colours that were never reordered", () => {
+        const stock = [level("pk", { onHand: 2 }), level("bl", { onHand: 3 }), level("rd", { onHand: 0 })];
+        const rows = demandByItem(orders, all, { kind: "polish" });
+        const slow = slowMovers(stock, all, rows, ["2026-01", "2026-07"], { kind: "polish" });
+        assert.deepEqual(
+            slow.map((s) => [s.itemId, s.reason]),
+            [["bl", "never-ordered"]],
+        );
+    });
+
+    it("refuses to call a seasonal pattern on less than twelve months", () => {
+        const few = seasonality([
+            { month: "2026-01", qty: 10 },
+            { month: "2026-04", qty: 20 },
+            { month: "2026-07", qty: 5 },
+        ]);
+        assert.equal(few.status, "insufficient");
+        if (few.status === "insufficient") {
+            assert.equal(few.monthsNeeded, 9);
+            assert.equal(few.readyFrom, "2027-01-01");
+        }
+        const year = seasonality(Array.from({ length: 12 }, (_, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, qty: i === 11 ? 220 : 80 })));
+        assert.equal(year.status, "ok");
+        if (year.status === "ok") {
+            assert.equal(year.peak, 12);
+            assert.ok((year.index[12] ?? 0) > 2);
+        }
+    });
+
+    it("finds how few items carry most of the value", () => {
+        const p = pareto([
+            { itemId: "a", name: "a", value: 80 },
+            { itemId: "b", name: "b", value: 15 },
+            { itemId: "c", name: "c", value: 5 },
+        ]);
+        assert.equal(p.itemsFor80, 1);
+        assert.equal(p.total, 100);
+    });
+
+    it("builds a reorder calendar and plans with the measured cycle when asked", () => {
+        const f = forecastItem({
+            itemId: "a",
+            locationId: "lynnfield",
+            onHand: 10,
+            par: 12,
+            leadTimeDays: 14,
+            windowStart: "2025-12-15",
+            windowEnd: "2026-08-28",
+            today: TODAY,
+            observations: [
+                { month: "2026-01", qty: 12 },
+                { month: "2026-04", qty: 6 },
+                { month: "2026-07", qty: 8 },
+            ],
+        });
+        const quoted = reorderCalendar([f], [item("a")], [vendor], TODAY)[0];
+        const measured = reorderCalendar([f], [item("a")], [vendor], TODAY, { leadTimeOverrideDays: 48 })[0];
+        assert.ok(quoted && measured);
+        assert.ok(quoted.reorderOn >= TODAY);
+        assert.ok((measured.orderBy ?? "") <= (quoted.orderBy ?? ""));
+        assert.equal(quoted.vendorName, "Nail Supply Store");
+    });
+
+    it("works out product cost per service and margin after product", () => {
+        const c = serviceCost({
+            id: "x",
+            service: "Gel manicure",
+            price: 45,
+            monthlyServices: 100,
+            isExample: true,
+            lines: [
+                { name: "Base", unitCost: 10, servicesPerUnit: 40 },
+                { name: "Colour", unitCost: 9, servicesPerUnit: 18 },
+            ],
+        });
+        assert.equal(c.productCost, 0.75);
+        assert.equal(c.productMargin, 44.25);
+        assert.equal(c.monthlyProductCost, 75);
+        assert.equal(c.costliest?.name, "Colour");
+    });
+
+    it("reports which data is missing and what it would unlock", () => {
+        const r = dataReadiness({
+            purchaseOrders: orders,
+            stock: [level("pk", { isSample: true })],
+            items: [item("pk", { costIsSample: true })],
+            today: TODAY,
+            hasServiceCounts: false,
+        });
+        assert.equal(r.find((x) => x.id === "order-history")?.ready, true);
+        assert.equal(r.find((x) => x.id === "costs")?.ready, false);
+        assert.equal(r.find((x) => x.id === "twelve-months")?.ready, false);
+    });
+});
+
+describe("mentions", () => {
+    const people = [
+        {
+            id: "u-a",
+            name: "Morgan Lee",
+            role: "front-desk" as const,
+            access: "user" as const,
+            locations: ["lynnfield" as const],
+            email: "a@example.com",
+            hasPin: true,
+        },
+        {
+            id: "u-b",
+            name: "Sam Patel",
+            role: "technician" as const,
+            access: "user" as const,
+            locations: ["newburyport" as const],
+            email: "b@example.com",
+            hasPin: true,
+        },
+        {
+            id: "u-c",
+            name: "Avery Chen",
+            role: "owner" as const,
+            access: "admin" as const,
+            locations: ["lynnfield" as const, "newburyport" as const],
+            email: "c@example.com",
+            hasPin: true,
+        },
+    ];
+    const body = "Can you check this @[u-a]? cc @[u-c] and @[u-a] again, plus @[u-gone].";
+
+    it("parses tokens by id, so names in plain text never notify anyone", () => {
+        assert.deepEqual(mentionedIds(body), ["u-a", "u-c", "u-gone"]);
+        assert.deepEqual(mentionedIds("Ask @Morgan Lee about it"), []);
+        const parts = parseNote(body, people);
+        assert.equal(parts.filter((p) => p.type === "mention").length, 4);
+        assert.match(noteToText(body, people), /@Morgan Lee\? cc @Avery Chen/);
+        assert.match(noteToText(body, people), /@someone who has left/);
+    });
+
+    it("offers only people who can see the record, and never the author", () => {
+        assert.deepEqual(
+            mentionCandidates(people, "", { location: "lynnfield", excludeId: "u-c" }).map((u) => u.id),
+            ["u-a"],
+        );
+        assert.deepEqual(
+            mentionCandidates(people, "pa", { location: "newburyport" }).map((u) => u.id),
+            ["u-b"],
+        );
+        assert.deepEqual(
+            mentionCandidates(people, "av", { location: "newburyport" }).map((u) => u.id),
+            ["u-c"],
+        );
+    });
+
+    it("creates one notification per person mentioned, skipping the author and unknown ids", () => {
+        const note = { id: "n1", subject: { type: "flag" as const, id: "f1" }, authorId: "u-c", body, createdAt: `${TODAY}T10:00:00Z` };
+        const out = notificationsForNote(note, people, "Count variance", "/flags/f1");
+        assert.deepEqual(
+            out.map((n) => n.userId),
+            ["u-a"],
+        );
+        assert.equal(out[0]?.title, "Avery Chen mentioned you on a flag");
+        assert.equal(out[0]?.href, "/flags/f1");
+    });
+});
+
+describe("search", () => {
+    const docs = [
+        {
+            id: "1",
+            kind: "supply" as const,
+            title: "CnC Acetone",
+            subtitle: "Supply Closet",
+            href: "/items/1",
+            keywords: "nail supply store gallon",
+            codes: ["012345678905"],
+        },
+        { id: "2", kind: "polish" as const, title: "Funny Bunny", subtitle: "OPI · WH02", href: "/items/2", keywords: "whites opi", codes: ["WH02", "H22"] },
+        { id: "3", kind: "polish" as const, title: "Bunny Slope", subtitle: "OPI · WH09", href: "/items/3", keywords: "whites opi", codes: ["WH09"] },
+        { id: "4", kind: "order" as const, title: "PO-LYN-2611-S1", subtitle: "Nail Supply Store", href: "/orders/4", codes: ["PO-LYN-2611-S1"] },
+        { id: "5", kind: "page" as const, title: "New order", href: "/orders/new", keywords: "reorder build purchase" },
+    ];
+
+    it("needs every word to match, in any field", () => {
+        assert.ok(scoreDoc(docs[0]!, "acetone gallon") > 0);
+        assert.equal(scoreDoc(docs[0]!, "acetone bottle"), 0);
+        assert.equal(scoreDoc(docs[0]!, "   "), 0);
+    });
+
+    it("ranks an exact code above a name match, ignoring case and spacing", () => {
+        const hits = search(docs, "wh02").polish ?? [];
+        assert.equal(hits[0]?.doc.id, "2");
+        assert.equal((search(docs, "po lyn 2611 s1").order ?? [])[0]?.doc.id, "4");
+        assert.equal((search(docs, "012345678905").supply ?? [])[0]?.doc.id, "1");
+    });
+
+    it("prefers titles that start with the query, groups by kind and counts all matches", () => {
+        const hits = search(docs, "bunny").polish ?? [];
+        assert.deepEqual(
+            hits.map((h) => h.doc.id),
+            ["3", "2"],
+        );
+        assert.equal(countMatches(docs, "opi"), 2);
+        assert.ok(search(docs, "reorder").page);
+        assert.deepEqual(search(docs, ""), {});
     });
 });

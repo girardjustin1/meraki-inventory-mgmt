@@ -19,6 +19,8 @@ import { addDays, daysBetween } from "@/engine/dates";
 import { buildDigest } from "@/engine/digest";
 import { detectFlags } from "@/engine/flags";
 import { forecastItem } from "@/engine/forecast";
+import { cyclesOf, demandByItem as demandRowsByItem } from "@/engine/insights";
+import type { DemandRow, ServiceRecipe } from "@/engine/insights";
 import { REASON_LABEL } from "@/engine/reasons";
 import { stockStatus } from "@/engine/stock";
 import catalogJson from "./seed/catalog.json";
@@ -26,14 +28,17 @@ import enrichmentJson from "./seed/enrichment.json";
 import ordersJson from "./seed/orders.json";
 import type {
     ActivityEntry,
+    AppNotification,
     CountSession,
     Digest,
     FillLevel,
     Flag,
     Forecast,
+    Invite,
     Item,
     Location,
     LocationId,
+    Note,
     NotificationRule,
     PolishLine,
     PurchaseOrder,
@@ -41,6 +46,7 @@ import type {
     StockLevel,
     StockMovement,
     StockStatus,
+    Task,
     User,
     Vendor,
     VendorId,
@@ -186,7 +192,9 @@ export const vendors: Vendor[] = [
         channel: "in-store",
         leadTimeDays: 14,
         leadTimeIsEstimate: true,
-        note: "Local distributor. Most back-bar supplies and OPI, DND and Chisel colours.",
+        orderEmail: "orders@nail-supply.example.com",
+        contact: "team",
+        note: "Local distributor. Most back-bar supplies and OPI, DND and Chisel colours. Ask whether they take emailed orders.",
     },
     {
         id: "costco-bjs",
@@ -194,7 +202,7 @@ export const vendors: Vendor[] = [
         channel: "in-store",
         leadTimeDays: 3,
         leadTimeIsEstimate: true,
-        note: "Paper goods and cleaning supplies. Bought in person.",
+        note: "Paper goods and cleaning supplies. Bought in person; no ordering API.",
     },
     {
         id: "amazon",
@@ -202,7 +210,7 @@ export const vendors: Vendor[] = [
         channel: "api",
         leadTimeDays: 3,
         leadTimeIsEstimate: true,
-        note: "Amazon Business can accept orders by API once the account is approved.",
+        note: "Amazon Business has ordering APIs. Access needs Amazon's approval.",
     },
     {
         id: "dazzle-dry",
@@ -210,7 +218,8 @@ export const vendors: Vendor[] = [
         channel: "portal",
         leadTimeDays: 7,
         leadTimeIsEstimate: true,
-        note: "Ordered through the Dazzle Dry professional portal.",
+        supportsCartLink: true,
+        note: "Professional store runs on Shopify, so a pre-filled cart link is possible once product links are saved.",
     },
     {
         id: "farmhouse-fresh",
@@ -218,7 +227,8 @@ export const vendors: Vendor[] = [
         channel: "portal",
         leadTimeDays: 10,
         leadTimeIsEstimate: true,
-        note: "Wholesale portal for spa treatments.",
+        supportsCartLink: true,
+        note: "Spa-partner portal runs on Shopify. Cart link possible once product links are saved.",
     },
     {
         id: "warehouse",
@@ -239,6 +249,7 @@ export const users: User[] = [
         id: "u-owner",
         name: "Avery Chen",
         role: "owner",
+        access: "admin",
         locations: ["lynnfield", "newburyport"],
         email: "owner@example.com",
         hasPin: true,
@@ -248,6 +259,7 @@ export const users: User[] = [
         id: "u-mgr-lyn",
         name: "Jordan Blake",
         role: "manager",
+        access: "user",
         locations: ["lynnfield"],
         email: "lynnfield.manager@example.com",
         hasPin: true,
@@ -257,6 +269,7 @@ export const users: User[] = [
         id: "u-mgr-nbp",
         name: "Riley Santos",
         role: "manager",
+        access: "user",
         locations: ["newburyport"],
         email: "newburyport.manager@example.com",
         hasPin: true,
@@ -266,6 +279,7 @@ export const users: User[] = [
         id: "u-fd-lyn",
         name: "Morgan Lee",
         role: "front-desk",
+        access: "user",
         locations: ["lynnfield"],
         email: "lynnfield.frontdesk@example.com",
         hasPin: true,
@@ -275,6 +289,7 @@ export const users: User[] = [
         id: "u-fd-nbp",
         name: "Casey Nguyen",
         role: "front-desk",
+        access: "user",
         locations: ["newburyport"],
         email: "newburyport.frontdesk@example.com",
         hasPin: false,
@@ -284,26 +299,122 @@ export const users: User[] = [
         id: "u-tech-1",
         name: "Sam Patel",
         role: "technician",
+        access: "user",
         locations: ["lynnfield"],
         email: "tech1@example.com",
         hasPin: true,
         lastActiveAt: `${addDays(TODAY, -1)}T19:31:00Z`,
     },
-    { id: "u-tech-2", name: "Taylor Kim", role: "technician", locations: ["lynnfield", "newburyport"], email: "tech2@example.com", hasPin: false },
+    {
+        id: "u-tech-2",
+        name: "Taylor Kim",
+        role: "technician",
+        access: "user",
+        locations: ["lynnfield", "newburyport"],
+        email: "tech2@example.com",
+        hasPin: false,
+    },
 ];
 
 export const userById = (id?: string) => users.find((u) => u.id === id);
 export const CURRENT_USER = users[1] as User;
 
+/** Base of invite links. The app serves the sign-up screen at /invite/<token>. */
+export const INVITE_PATH = "/invite";
+export const inviteUrl = (token: string, origin = "") => `${origin}${INVITE_PATH}/${token}`;
+
+/** Sample invites covering every state the Team and sign-up screens need to show. Invites are created by admins only. */
+export const invites: Invite[] = [
+    {
+        id: "inv-1",
+        token: "mk_7Qp2xV9aLr4TnB6c",
+        email: "new.tech@example.com",
+        name: "Devon",
+        role: "technician",
+        access: "user",
+        locations: ["lynnfield"],
+        invitedBy: "u-owner",
+        createdAt: `${addDays(TODAY, -2)}T15:20:00Z`,
+        expiresAt: `${addDays(TODAY, 5)}T15:20:00Z`,
+        status: "pending",
+        note: "Starts Monday.",
+    },
+    {
+        id: "inv-2",
+        token: "mk_Hs81KdZe3YwUq0Jm",
+        role: "front-desk",
+        access: "user",
+        locations: ["newburyport"],
+        invitedBy: "u-owner",
+        createdAt: `${addDays(TODAY, -1)}T10:05:00Z`,
+        expiresAt: `${addDays(TODAY, 1)}T10:05:00Z`,
+        status: "pending",
+    },
+    {
+        id: "inv-3",
+        token: "mk_Rt5NcA2pXg8LfV1b",
+        email: "ops.lead@example.com",
+        name: "Priya",
+        role: "manager",
+        access: "admin",
+        locations: ["lynnfield", "newburyport"],
+        invitedBy: "u-owner",
+        createdAt: `${TODAY}T08:30:00Z`,
+        expiresAt: `${addDays(TODAY, 7)}T08:30:00Z`,
+        status: "pending",
+        note: "Will run ordering for both locations.",
+    },
+    {
+        id: "inv-4",
+        token: "mk_Bz4WqE7uMi2SdK9h",
+        email: "tech2@example.com",
+        name: "Taylor",
+        role: "technician",
+        access: "user",
+        locations: ["lynnfield", "newburyport"],
+        invitedBy: "u-owner",
+        createdAt: `${addDays(TODAY, -40)}T12:00:00Z`,
+        expiresAt: `${addDays(TODAY, -33)}T12:00:00Z`,
+        status: "accepted",
+        acceptedAt: `${addDays(TODAY, -39)}T09:12:00Z`,
+        acceptedBy: "u-tech-2",
+    },
+    {
+        id: "inv-5",
+        token: "mk_Yn3GvP6oCx1TrL8w",
+        email: "former.applicant@example.com",
+        role: "front-desk",
+        access: "user",
+        locations: ["lynnfield"],
+        invitedBy: "u-owner",
+        createdAt: `${addDays(TODAY, -21)}T16:45:00Z`,
+        expiresAt: `${addDays(TODAY, -14)}T16:45:00Z`,
+        status: "expired",
+    },
+    {
+        id: "inv-6",
+        token: "mk_Uf9JhD5sAe0MkQ2z",
+        email: "wrong.address@example.com",
+        role: "manager",
+        access: "user",
+        locations: ["newburyport"],
+        invitedBy: "u-owner",
+        createdAt: `${addDays(TODAY, -6)}T11:10:00Z`,
+        expiresAt: `${addDays(TODAY, 1)}T11:10:00Z`,
+        status: "revoked",
+        revokedAt: `${addDays(TODAY, -6)}T11:25:00Z`,
+        note: "Sent to the wrong address.",
+    },
+];
+
+export const getInvite = (token: string) => invites.find((i) => i.token === token);
+
+/** Invite links for an email expire after a week; open links after 48 hours. */
+export const INVITE_TTL_DAYS = { email: 7, link: 2 } as const;
+
 export const ROLE_LABEL: Record<User["role"], string> = { owner: "Owner", manager: "Manager", "front-desk": "Front desk", technician: "Technician" };
 
-/** What each role can do. Mirrors the row-level security policies in supabase/migrations. */
-export const ROLE_PERMISSIONS: Record<User["role"], string[]> = {
-    owner: ["View all locations", "Approve orders", "Approve counts", "Resolve flags", "Manage team and settings", "See costs"],
-    manager: ["Count stock", "Create orders", "Approve counts", "Resolve flags", "See costs"],
-    "front-desk": ["Receive deliveries", "Count stock", "Request items"],
-    technician: ["Log usage", "Request items", "Count assigned shelves"],
-};
+// What each role can do lives in engine/permissions.ts (ROLE_GRANTS), the single source for the UI.
 
 // ------------------------------------------------------------------------------------ items
 
@@ -780,9 +891,10 @@ const novemberOrders: PurchaseOrder[] = (() => {
             imported: false,
         };
     };
-    return [build("nail-supply-store", 1, "awaiting-approval", 14), build("amazon", 2, "draft", 6), build("costco-bjs", 3, "draft", 6)].filter(
-        (po): po is PurchaseOrder => Boolean(po),
-    );
+    // One of each state the ordering screens need: waiting for the owner, still a draft, and approved and ready to send.
+    const approved = build("costco-bjs", 3, "approved", 6);
+    if (approved) approved.approvedBy = "u-owner";
+    return [build("nail-supply-store", 1, "awaiting-approval", 14), build("amazon", 2, "draft", 6), approved].filter((po): po is PurchaseOrder => Boolean(po));
 })();
 
 export const purchaseOrders: PurchaseOrder[] = [...novemberOrders, ...importedOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -1171,6 +1283,434 @@ export const activity: ActivityEntry[] = (() => {
     }
     return out.sort((a, b) => b.at.localeCompare(a.at));
 })();
+
+// ------------------------------------------------------------------------------------ insights
+
+/** Order cycles (yyyy-mm) on file for a location, oldest first. */
+export const orderCycles = (loc: LocationId, kind?: PurchaseOrder["kind"]) => cyclesOf(purchaseOrders, kind, loc);
+
+const demandCache = new Map<string, DemandRow[]>();
+/** What was ordered per item across the 2026 cycles. Real data. */
+export const demandFor = (loc: LocationId, kind: Item["kind"]): DemandRow[] => {
+    const key = `${loc}:${kind}`;
+    const hit = demandCache.get(key);
+    if (hit) return hit;
+    const rows = demandRowsByItem(purchaseOrders, items, { kind, locationId: loc });
+    demandCache.set(key, rows);
+    return rows;
+};
+
+/**
+ * Forecast per colour, for colours that were reordered in 2026. Kept apart from `forecasts`
+ * (supplies) so polish does not flood the reorder list and the stockout flags.
+ */
+export const polishForecasts: Forecast[] = demandFor("lynnfield", "polish").map((d) => {
+    const item = getItem(d.itemId) as Item;
+    return forecastItem({
+        itemId: d.itemId,
+        locationId: "lynnfield",
+        onHand: getStock(d.itemId, "lynnfield")?.onHand ?? 0,
+        par: getStock(d.itemId, "lynnfield")?.par,
+        leadTimeDays: vendorById(item.vendorId).leadTimeDays,
+        observations: Object.entries(d.byCycle).map(([month, qty]) => ({ month, qty })),
+        windowStart: lynWindow.start,
+        windowEnd: lynWindow.end,
+        today: TODAY,
+    });
+});
+const polishForecastMap = new Map(polishForecasts.map((f) => [f.itemId, f]));
+export const getPolishForecast = (itemId: string) => polishForecastMap.get(itemId);
+
+/** Days from count date to receipt for the main vendor, measured from the 2026 backlog. */
+export const measuredCycleDays = (() => {
+    const days = importedOrders
+        .filter((po) => po.vendorId === "nail-supply-store")
+        .flatMap((po) => po.lines.filter((l) => l.receivedAt).map((l) => daysBetween(po.createdAt, l.receivedAt as string)))
+        .filter((d) => d >= 0);
+    return days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : undefined;
+})();
+
+const recipeLine = (itemId: string, servicesPerUnit: number) => {
+    const item = getItem(itemId);
+    return { itemId, name: item?.name ?? itemId, unitCost: item?.unitCost ?? 0, servicesPerUnit };
+};
+
+/**
+ * EXAMPLE service recipes for the cost-per-service calculator. Prices, services per container and
+ * monthly volumes are placeholders to show how the calculation works. Replace them with Meraki's
+ * menu prices, Meevo service counts and measured yields before drawing any conclusion.
+ */
+export const serviceRecipes: ServiceRecipe[] = [
+    {
+        id: "gel-manicure",
+        service: "Gel manicure",
+        price: 45,
+        monthlyServices: 180,
+        isExample: true,
+        lines: [
+            recipeLine("sup-opi-gel-base-coat", 40),
+            recipeLine("sup-igel-beauty-non-cleansing-gel-top-coat", 40),
+            { name: "Gel colour (one bottle)", unitCost: POLISH_META.opi.cost, servicesPerUnit: 25 },
+            recipeLine("sup-cnc-acetone", 60),
+            recipeLine("sup-cre8tion-nail-file-white-80-100-manicure-files", 50),
+        ],
+    },
+    {
+        id: "dip-powder",
+        service: "Dip powder manicure",
+        price: 55,
+        monthlyServices: 120,
+        isExample: true,
+        lines: [
+            recipeLine("sup-nugenesis-prep-liquid-1-yellow-bottle", 45),
+            recipeLine("sup-nugenesis-base-gel-2-pink-bottle", 25),
+            recipeLine("sup-nugenesis-activator-liquid-3-blue-bottle", 30),
+            { name: "Dip powder (one jar)", unitCost: POLISH_META.chisel.cost, servicesPerUnit: 20 },
+            recipeLine("sup-milken-100-sanding-bands-burgundy-medium-150", 25),
+        ],
+    },
+    {
+        id: "spa-pedicure",
+        service: "Spa pedicure",
+        price: 60,
+        monthlyServices: 150,
+        isExample: true,
+        lines: [
+            recipeLine("sup-cre8tion-disposable-pedicure-liners", 100),
+            recipeLine("sup-spa-redi-callus-remover", 60),
+            recipeLine("sup-kds-orange-sugar-scrub", 40),
+            recipeLine("sup-cre8tion-toe-seaparators", 100),
+            recipeLine("sup-cuticle-oil", 120),
+        ],
+    },
+];
+
+// ------------------------------------------------------------------------------------ notes, notifications, tasks (sample)
+
+const draftOrderFor = (vendorId: VendorId) => novemberOrders.find((po) => po.vendorId === vendorId);
+const firstOpenFlag = flags.find((f) => f.type === "count-variance" && f.status === "open");
+const mismatchFlag = flags.find((f) => f.type === "received-mismatch" && f.severity === "high");
+
+/** Sample notes showing @mentions on a flag and on orders. */
+export const notes: Note[] = [
+    ...(firstOpenFlag
+        ? [
+              {
+                  id: "note-1",
+                  subject: { type: "flag" as const, id: firstOpenFlag.id },
+                  authorId: "u-mgr-lyn",
+                  createdAt: `${addDays(TODAY, -1)}T19:02:00Z`,
+                  isSample: true,
+                  body: "@[u-tech-1] you counted this last night. Could the missing ones be in the pedicure room cart?",
+              },
+              {
+                  id: "note-2",
+                  subject: { type: "flag" as const, id: firstOpenFlag.id },
+                  authorId: "u-tech-1",
+                  createdAt: `${TODAY}T08:15:00Z`,
+                  isSample: true,
+                  body: "Checked the cart, found one. Still two short. @[u-fd-lyn] did a delivery get shelved without being received?",
+              },
+          ]
+        : []),
+    ...(mismatchFlag
+        ? [
+              {
+                  id: "note-3",
+                  subject: { type: "flag" as const, id: mismatchFlag.id },
+                  authorId: "u-owner",
+                  createdAt: `${addDays(TODAY, -3)}T14:40:00Z`,
+                  isSample: true,
+                  body: "@[u-mgr-lyn] please pull the invoice for this one before Friday.",
+              },
+          ]
+        : []),
+    ...(draftOrderFor("costco-bjs")
+        ? [
+              {
+                  id: "note-4",
+                  subject: { type: "order" as const, id: (draftOrderFor("costco-bjs") as PurchaseOrder).id },
+                  authorId: "u-mgr-lyn",
+                  createdAt: `${TODAY}T09:05:00Z`,
+                  isSample: true,
+                  body: "@[u-tech-1] can you do the Costco run Tuesday morning before your first client? Card is in the office safe.",
+              },
+          ]
+        : []),
+    ...(draftOrderFor("nail-supply-store")
+        ? [
+              {
+                  id: "note-5",
+                  subject: { type: "order" as const, id: (draftOrderFor("nail-supply-store") as PurchaseOrder).id },
+                  authorId: "u-mgr-lyn",
+                  createdAt: `${addDays(TODAY, -2)}T14:12:00Z`,
+                  isSample: true,
+                  body: "@[u-owner] ready for approval. Base gel is higher than usual because we are out.",
+              },
+          ]
+        : []),
+];
+
+export const notesFor = (type: Note["subject"]["type"], id: string) =>
+    notes.filter((n) => n.subject.type === type && n.subject.id === id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+/** Sample tasks. A pickup run sends one person to a store with the pick list for an order. */
+export const tasks: Task[] = (() => {
+    const costco = draftOrderFor("costco-bjs");
+    const supply = importedOrders.find((po) => po.id === "lynnfield-2026-07-supply-nail-supply-store");
+    const out: Task[] = [];
+    if (costco) {
+        out.push({
+            id: "task-pickup-costco",
+            type: "pickup-run",
+            title: "Costco run for Lynnfield",
+            locationId: "lynnfield",
+            assigneeId: "u-tech-1",
+            createdBy: "u-mgr-lyn",
+            createdAt: `${TODAY}T09:05:00Z`,
+            dueAt: `${addDays(TODAY, 3)}T13:00:00Z`,
+            status: "assigned",
+            orderIds: [costco.id],
+            vendorId: "costco-bjs",
+            place: "Costco, Danvers",
+            note: "Card is in the office safe. Keep the receipt.",
+            lines: costco.lines.map((l) => ({ name: l.name, itemId: l.itemId, qty: l.qtyOrdered })),
+            isSample: true,
+        });
+    }
+    if (supply) {
+        out.push({
+            id: "task-pickup-supply",
+            type: "pickup-run",
+            title: "Nail supply store pickup",
+            locationId: "lynnfield",
+            assigneeId: "u-fd-lyn",
+            createdBy: "u-mgr-lyn",
+            createdAt: `${addDays(TODAY, -1)}T16:30:00Z`,
+            dueAt: `${TODAY}T20:00:00Z`,
+            status: "in-progress",
+            acceptedAt: `${addDays(TODAY, -1)}T16:44:00Z`,
+            orderIds: [supply.id],
+            vendorId: "nail-supply-store",
+            place: "Nail supply store",
+            lines: supply.lines
+                .filter((l) => l.qtyOrdered > 0)
+                .slice(0, 8)
+                .map((l, i) => ({
+                    name: l.name,
+                    itemId: l.itemId,
+                    qty: l.qtyOrdered,
+                    picked: i < 3 ? l.qtyOrdered : i === 3 ? (l.qtyOrdered > 1 ? l.qtyOrdered - 1 : 0) : undefined,
+                    note: i === 3 ? (l.qtyOrdered > 1 ? "Only had some in stock" : "Out of stock at the store") : undefined,
+                })),
+            isSample: true,
+        });
+    }
+    out.push(
+        {
+            id: "task-review-closet",
+            type: "review",
+            subject: { type: "count", id: "cs-lyn-closet" },
+            title: "Review the Supply Closet count",
+            locationId: "lynnfield",
+            assigneeId: "u-mgr-lyn",
+            createdBy: "u-owner",
+            createdAt: `${addDays(TODAY, -1)}T18:45:00Z`,
+            dueAt: `${addDays(TODAY, 1)}T22:00:00Z`,
+            status: "assigned",
+            isSample: true,
+        },
+        {
+            id: "task-done-run",
+            type: "pickup-run",
+            title: "BJ's run for paper goods",
+            locationId: "lynnfield",
+            assigneeId: "u-tech-2",
+            createdBy: "u-mgr-lyn",
+            createdAt: `${addDays(TODAY, -9)}T15:00:00Z`,
+            dueAt: `${addDays(TODAY, -7)}T17:00:00Z`,
+            status: "done",
+            acceptedAt: `${addDays(TODAY, -9)}T15:20:00Z`,
+            doneAt: `${addDays(TODAY, -7)}T16:10:00Z`,
+            vendorId: "costco-bjs",
+            place: "BJ's, Danvers",
+            amountPaid: 86.4,
+            paidWith: "Salon card",
+            lines: [
+                { name: "Paper towels", qty: 2, picked: 2 },
+                { name: "Hand soap", qty: 1, picked: 1 },
+            ],
+            isSample: true,
+        },
+    );
+    return out;
+})();
+
+export const getTask = (id: string) => tasks.find((t) => t.id === id);
+export const tasksFor = (userId: string) => tasks.filter((t) => t.assigneeId === userId).sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+
+/** Sample inbox entries across people, newest first. */
+export const notifications: AppNotification[] = (() => {
+    const n = (
+        id: string,
+        userId: string,
+        type: AppNotification["type"],
+        actorId: string | undefined,
+        title: string,
+        body: string | undefined,
+        href: string,
+        createdAt: string,
+        read = false,
+        emailed = false,
+    ): AppNotification => ({
+        id,
+        userId,
+        type,
+        actorId,
+        title,
+        body,
+        href,
+        createdAt,
+        emailed,
+        readAt: read ? createdAt : undefined,
+    });
+    const costco = draftOrderFor("costco-bjs");
+    const supplyDraft = draftOrderFor("nail-supply-store");
+    return [
+        ...(firstOpenFlag
+            ? [
+                  n(
+                      "ntf-1",
+                      "u-fd-lyn",
+                      "mention",
+                      "u-tech-1",
+                      "Sam Patel mentioned you on a flag",
+                      `${firstOpenFlag.title}: did a delivery get shelved without being received?`,
+                      `/flags/${firstOpenFlag.id}`,
+                      `${TODAY}T08:15:00Z`,
+                  ),
+              ]
+            : []),
+        ...(firstOpenFlag
+            ? [
+                  n(
+                      "ntf-2",
+                      "u-tech-1",
+                      "mention",
+                      "u-mgr-lyn",
+                      "Jordan Blake mentioned you on a flag",
+                      `${firstOpenFlag.title}: could the missing ones be in the pedicure room cart?`,
+                      `/flags/${firstOpenFlag.id}`,
+                      `${addDays(TODAY, -1)}T19:02:00Z`,
+                      true,
+                  ),
+              ]
+            : []),
+        ...(costco
+            ? [
+                  n(
+                      "ntf-3",
+                      "u-tech-1",
+                      "task-assigned",
+                      "u-mgr-lyn",
+                      "Jordan Blake asked you to do a pickup",
+                      "Costco run for Lynnfield, by Tuesday 1:00 PM.",
+                      "/tasks/task-pickup-costco",
+                      `${TODAY}T09:05:00Z`,
+                      false,
+                      true,
+                  ),
+              ]
+            : []),
+        n(
+            "ntf-4",
+            "u-mgr-lyn",
+            "task-updated",
+            "u-fd-lyn",
+            "Morgan Lee started the nail supply store pickup",
+            "3 of 8 lines picked so far.",
+            "/tasks/task-pickup-supply",
+            `${TODAY}T09:48:00Z`,
+        ),
+        ...(mismatchFlag
+            ? [
+                  n(
+                      "ntf-5",
+                      "u-mgr-lyn",
+                      "mention",
+                      "u-owner",
+                      "Avery Chen mentioned you on a flag",
+                      `${mismatchFlag.title}: please pull the invoice before Friday.`,
+                      `/flags/${mismatchFlag.id}`,
+                      `${addDays(TODAY, -3)}T14:40:00Z`,
+                      false,
+                      true,
+                  ),
+              ]
+            : []),
+        n(
+            "ntf-6",
+            "u-mgr-lyn",
+            "task-assigned",
+            "u-owner",
+            "Avery Chen asked you to review a count",
+            "Supply Closet, submitted yesterday.",
+            "/counts/cs-lyn-closet",
+            `${addDays(TODAY, -1)}T18:45:00Z`,
+        ),
+        n(
+            "ntf-7",
+            "u-mgr-lyn",
+            "count-due",
+            undefined,
+            "Wax Room count is due in 3 days",
+            "9 items, assigned to Sam Patel.",
+            "/counts/cs-lyn-wax",
+            `${TODAY}T07:00:00Z`,
+            true,
+        ),
+        ...(supplyDraft
+            ? [
+                  n(
+                      "ntf-8",
+                      "u-owner",
+                      "approval-requested",
+                      "u-mgr-lyn",
+                      "Jordan Blake sent an order for approval",
+                      `${supplyDraft.number} to Nail Supply Store, ${supplyDraft.lines.length} lines.`,
+                      `/orders/${supplyDraft.id}`,
+                      `${addDays(TODAY, -2)}T14:10:00Z`,
+                      false,
+                      true,
+                  ),
+              ]
+            : []),
+        n(
+            "ntf-9",
+            "u-mgr-lyn",
+            "flag-assigned",
+            "u-owner",
+            "Avery Chen assigned you a flag",
+            "Order not received: older orders still have lines not marked received.",
+            "/flags/or-backlog-lynnfield",
+            `${addDays(TODAY, -4)}T10:20:00Z`,
+            true,
+        ),
+        n(
+            "ntf-10",
+            "u-fd-lyn",
+            "delivery-expected",
+            undefined,
+            "A Dazzle Dry delivery is expected this week",
+            "Receive it against the open order when it arrives.",
+            "/receive",
+            `${addDays(TODAY, -2)}T07:00:00Z`,
+            true,
+        ),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+})();
+
+export const notificationsForUser = (userId: string) => notifications.filter((n) => n.userId === userId);
 
 // ------------------------------------------------------------------------------------ summary numbers
 

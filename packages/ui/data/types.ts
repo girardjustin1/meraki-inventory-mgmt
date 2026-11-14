@@ -29,21 +29,61 @@ export interface Vendor {
     leadTimeDays: number;
     /** True when leadTimeDays is an assumption, not measured. */
     leadTimeIsEstimate: boolean;
+    /** Rep or contact name, used in the greeting of an emailed order. */
     contact?: string;
+    /** Where emailed purchase orders go. */
+    orderEmail?: string;
+    accountNumber?: string;
+    /** Vendor's storefront, e.g. https://pro.example.com. Needed for cart links. */
+    storeUrl?: string;
+    /** The store accepts Shopify cart links (a pre-filled cart). */
+    supportsCartLink?: boolean;
     note?: string;
 }
 
 export type Role = "owner" | "manager" | "front-desk" | "technician";
 
+/** Admins can do everything everywhere. Users get what their role grants. See engine/permissions.ts. */
+export type AccessLevel = "admin" | "user";
+
 export interface User {
     id: string;
     name: string;
     role: Role;
+    access: AccessLevel;
     locations: LocationId[];
     email: string;
     /** PIN lock enabled for this user (the PIN itself is never stored client-side). */
     hasPin: boolean;
     lastActiveAt?: string;
+}
+
+export type InviteStatus = "pending" | "accepted" | "expired" | "revoked";
+
+/**
+ * An invitation to join. One person, one use.
+ * `email` set: only that Google account can accept it. `email` unset: anyone holding the link can,
+ * so those expire sooner and should be sent directly to the person.
+ */
+export interface Invite {
+    id: string;
+    /** Opaque token in the link. The server stores only its hash; the prototype keeps it for demo links. */
+    token: string;
+    email?: string;
+    /** Name typed by the inviter, shown on the sign-up screen as a greeting. */
+    name?: string;
+    role: Role;
+    access: AccessLevel;
+    locations: LocationId[];
+    invitedBy: string;
+    createdAt: string;
+    expiresAt: string;
+    status: InviteStatus;
+    acceptedAt?: string;
+    /** User id created when the invite was accepted. */
+    acceptedBy?: string;
+    revokedAt?: string;
+    note?: string;
 }
 
 export type ItemKind = "supply" | "polish" | "tips";
@@ -343,4 +383,90 @@ export interface ActivityEntry {
     detail?: string;
     href?: string;
     tone?: "neutral" | "good" | "warning" | "bad";
+}
+
+// ------------------------------------------------------------------------------------ notes, notifications, tasks
+
+/** What a note or task is attached to. */
+export interface NoteSubject {
+    type: "flag" | "order" | "item" | "count" | "task";
+    id: string;
+}
+
+/** A comment on a record. `body` is plain text with mention tokens like `@[u-fd-lyn]` (see engine/mentions.ts). */
+export interface Note {
+    id: string;
+    subject: NoteSubject;
+    authorId: string;
+    body: string;
+    createdAt: string;
+    editedAt?: string;
+    isSample?: boolean;
+}
+
+export type NotificationType =
+    "mention" | "task-assigned" | "task-updated" | "approval-requested" | "flag-assigned" | "count-due" | "delivery-expected" | "order-approved";
+
+/** One entry in a person's inbox. Named AppNotification to stay clear of the browser's Notification. */
+export interface AppNotification {
+    id: string;
+    userId: string;
+    type: NotificationType;
+    /** Who caused it, when it was a person. */
+    actorId?: string;
+    title: string;
+    body?: string;
+    href: string;
+    createdAt: string;
+    readAt?: string;
+    /** Also sent by email (depends on the person's notification settings). */
+    emailed: boolean;
+}
+
+export type TaskType = "pickup-run" | "count" | "receive" | "review" | "general";
+
+export type TaskStatus = "assigned" | "accepted" | "in-progress" | "done" | "declined" | "cancelled";
+
+export interface PickupLine {
+    name: string;
+    itemId?: string;
+    qty: number;
+    /** What the person actually got. Undefined until they tick it. */
+    picked?: number;
+    /** Substitution or reason for a shortfall. */
+    note?: string;
+}
+
+/**
+ * Something one person asks another to do. A pickup run sends someone to a store with a pick
+ * list for one or more orders; when they are back the order is received in the normal way.
+ */
+export interface Task {
+    id: string;
+    type: TaskType;
+    title: string;
+    locationId: LocationId;
+    assigneeId: string;
+    createdBy: string;
+    createdAt: string;
+    /** ISO datetime. */
+    dueAt: string;
+    status: TaskStatus;
+    note?: string;
+    /** The record a non-pickup task is about (the count to review, the flag to check). */
+    subject?: NoteSubject;
+    /** Why the person could not do it, when declined. */
+    declineReason?: string;
+    /** Pickup runs: the orders being collected and where from. */
+    orderIds?: string[];
+    vendorId?: VendorId;
+    /** Store name or address the person should go to. */
+    place?: string;
+    lines?: PickupLine[];
+    acceptedAt?: string;
+    doneAt?: string;
+    /** What the run cost, when the person paid in store. */
+    amountPaid?: number;
+    paidWith?: string;
+    isSample?: boolean;
 }
