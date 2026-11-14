@@ -17,3 +17,9 @@ references/
 data/private/
 __pycache__/
 .venv/
+
+# Generated
+supabase/seed-catalog.sql
+supabase/.temp/
+supabase/.branches/
+apps/web/AGENTS.md
