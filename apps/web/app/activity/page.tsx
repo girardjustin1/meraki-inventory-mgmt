@@ -1,6 +1,9 @@
+"use client";
+
 import { users } from "@/data/inventory";
 import { ActivityScreen } from "@/screens/activity/activity-screen";
-import { type SearchParams, manyOf, oneOf, text, viewLocation, viewer } from "~/lib/view-params";
+import { useView } from "~/lib/use-view";
+import { manyOf, oneOf, text } from "~/lib/view-params";
 
 const REASONS = [
     "cycle-count",
@@ -17,12 +20,12 @@ const REASONS = [
 ] as const;
 
 /** Deep link: /activity?loc=&type=adjust&range=30&person=<user id>,system&reason=lost&scope=all&q=acetone&sort=largest */
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
+export default function Page() {
+    const { params, user, location } = useView();
     return (
         <ActivityScreen
-            user={await viewer()}
-            location={await viewLocation(params)}
+            user={user}
+            location={location}
             type={oneOf(params.type, ["count", "receive", "adjust", "order", "flag"])}
             initialRange={oneOf(params.range, ["7", "30", "90", "year", "all"])}
             initialPeople={manyOf(params.person, [...users.map((u) => u.id), "system"])}

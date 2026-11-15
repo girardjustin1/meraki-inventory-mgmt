@@ -38,6 +38,7 @@ import type { Invite, Role } from "@/data/types";
 import { formatDate } from "@/engine/dates";
 import { isAdmin } from "@/engine/permissions";
 import { isWeakPin } from "@/screens/pin-lock/pin-lock-screen";
+import { asset } from "@/utils/asset";
 import { cx } from "@/utils/cx";
 
 export type InviteAcceptStep = "invite" | "profile" | "pin" | "done";
@@ -96,7 +97,7 @@ const Swan = ({ className }: { className?: string }) => {
     const [failed, setFailed] = useState(false);
     if (failed) return null;
     // Static brand asset from public/brand. Plain <img> so it works in Storybook and Next.
-    return <img src="/brand/meraki-swan-teal.svg" alt="" aria-hidden="true" onError={() => setFailed(true)} className={className} />;
+    return <img src={asset("/brand/meraki-swan-teal.svg")} alt="" aria-hidden="true" onError={() => setFailed(true)} className={className} />;
 };
 
 const JOINING = [

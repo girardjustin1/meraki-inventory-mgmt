@@ -10,6 +10,7 @@
     "build-storybook": "npm run build-storybook -w @meraki/ui",
     "dev": "npm run dev -w @meraki/inventory-web",
     "build": "npm run build -w @meraki/inventory-web",
+    "build:pages": "node tools/pages/build.mjs",
     "type-check": "npm run type-check --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "import:seed": ".venv/bin/python tools/import/import_spreadsheets.py",

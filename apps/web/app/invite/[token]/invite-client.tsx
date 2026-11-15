@@ -1,9 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { InviteAcceptScreen } from "@/screens/invite-accept/invite-accept-screen";
 
-export function InviteClient({ token }: { token: string }) {
+export function InviteClient() {
+    const { token } = useParams<{ token: string }>();
     const router = useRouter();
-    return <InviteAcceptScreen token={token} onDone={() => router.push("/")} />;
+    return <InviteAcceptScreen token={decodeURIComponent(token)} onDone={() => router.push("/")} />;
 }

@@ -4,6 +4,7 @@
  * Spread these into the `metadata` and `viewport` exports of app/layout.tsx:
  *
  *   import type { Metadata, Viewport } from "next";
+import { withBase } from "./base-path";
  *   import { pwaMetadata, pwaViewport } from "~/lib/pwa-metadata";
  *
  *   export const metadata: Metadata = { title: "Meraki Inventory", robots: { index: false, follow: false }, ...pwaMetadata };
@@ -27,6 +28,7 @@
  * milestone. iOS does not need a service worker for Add to Home Screen.
  */
 import type { Metadata, Viewport } from "next";
+import { withBase } from "./base-path";
 
 /** Brand colours, also used by app/manifest.ts. Keep in step with packages/ui/styles/theme.css. */
 export const PWA_COLORS = {
@@ -45,10 +47,10 @@ export const pwaMetadata = {
     },
     icons: {
         icon: [
-            { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-            { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+            { url: withBase("/icons/icon-192.png"), sizes: "192x192", type: "image/png" },
+            { url: withBase("/icons/icon-512.png"), sizes: "512x512", type: "image/png" },
         ],
-        apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+        apple: [{ url: withBase("/icons/apple-touch-icon.png"), sizes: "180x180", type: "image/png" }],
     },
     // Stops iOS turning stock counts and SKUs into tappable phone numbers.
     formatDetection: { telephone: false },

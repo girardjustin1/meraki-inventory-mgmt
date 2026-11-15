@@ -1,6 +1,9 @@
+"use client";
+
 import { users } from "@/data/inventory";
 import { FlagsScreen } from "@/screens/flags/flags-screen";
-import { type SearchParams, manyOf, oneOf, text, viewLocation, viewer } from "~/lib/view-params";
+import { useView } from "~/lib/use-view";
+import { manyOf, oneOf, text } from "~/lib/view-params";
 
 const TYPES = [
     "received-mismatch",
@@ -20,12 +23,12 @@ const TYPES = [
  * Deep link:
  * /flags?loc=&tab=reviewing&severity=high,medium&type=count-variance&assignee=unassigned,<user id>&source=real&q=acetone&sort=newest&flag=<id>
  */
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
+export default function Page() {
+    const { params, user, location } = useView();
     return (
         <FlagsScreen
-            user={await viewer()}
-            location={await viewLocation(params)}
+            user={user}
+            location={location}
             tab={oneOf(params.tab, ["open", "reviewing", "closed", "all"])}
             severity={manyOf(params.severity, ["high", "medium", "low"])}
             initialTypes={manyOf(params.type, TYPES)}

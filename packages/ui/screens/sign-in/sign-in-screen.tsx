@@ -5,6 +5,7 @@ import { AlertCircle, ClipboardCheck, Flag01, Share01, ShoppingCart01, XClose } 
 import { Button } from "@/components/base/buttons/button";
 import { GoogleLogo } from "@/components/base/buttons/social-logos";
 import { MerakiLogo } from "@/components/foundations/logo/meraki-logo";
+import { asset } from "@/utils/asset";
 
 export type SignInState = "default" | "loading" | "not-invited";
 
@@ -23,7 +24,7 @@ const Swan = ({ className }: { className?: string }) => {
     const [failed, setFailed] = useState(false);
     if (failed) return null;
     // Static brand asset from public/brand. Plain <img> so it works in Storybook and Next.
-    return <img src="/brand/meraki-swan-teal.svg" alt="" aria-hidden="true" onError={() => setFailed(true)} className={className} />;
+    return <img src={asset("/brand/meraki-swan-teal.svg")} alt="" aria-hidden="true" onError={() => setFailed(true)} className={className} />;
 };
 
 const PROMISES = [
