@@ -226,7 +226,24 @@ See `docs/architecture.md` and `supabase/migrations/0001_init.sql`.
 - **Research**: UX patterns (Mobbin, 79 reference screens), inventory controls, vendor and product-data options (`docs/research`).
 - **Second round** (same day): command menu and deep links; Admin and User access with invites and sign-up; send orders with per-vendor email drafts, cart links and pick lists; notes with @mentions, notifications and pickup runs; the Insights tab; and a prototype-only "view as" switch to see the app as any sample person. The engine now has 46 tests and the database 350 rule checks.
 
+- **Third round** (same day), after comparing the first pass with the Shopify admin:
+  - **One list pattern** on Stock, Orders, Counts, Flags, Activity and Collections: a single bar for views, search, filters and sort; one line per row; compact cards on phones; every view in the address bar.
+  - **Quantities edited in place** on the stock table, with a reason and Undo, and a spreadsheet-style grid for editing several items.
+  - **Batch actions.** Stock: add to an order, count, edit quantities, set par, change vendor or shelf, pause reordering, labels, export. Orders: approve, send, export, cancel drafts. Counts: assign, reschedule, cancel, export. Flags: assign, start review, resolve, dismiss, export. An action that does not apply to some of the selected rows runs for the rest and says what was skipped and why.
+  - **Guard rails on batch review.** Dismissing in bulk leaves high-severity flags in the queue unless a box is ticked and a note written; resolving them asks for the PIN; nobody can close a flag about their own entry; only admins approve orders.
+  - **Polish finishes as variants.** A colour has Regular, Gel and Dip rows with bottles in use and in backstock. The polish wall filters by finish; the product picker nests finishes under the colour.
+  - **Collections**: list and detail screens, a rules editor, "Count this collection" and "Order what's low".
+  - **Slimmer detail pages** for items, orders and collections: a main column, a plain right rail, one action cluster and one save bar. On an order, the product picker is locked to the order's vendor.
+  - **Home** reduced to three numbers and today's work; navigation grouped as Inventory, Purchasing, Review, Insights.
+  - 29 screens on 40 routes. The engine has 48 tests and the database 350 rule checks; both production builds pass.
+
 Known limits of the prototype:
+
+- Batch actions, in-place edits and collection changes last until the page is reloaded: nothing is written to a database yet.
+- Exported CSV files were triggered and confirmed on screen; their contents have not been opened and checked.
+- Shift-click range selection and long-press selection on a phone were not exercised by the automated browser checks.
+- A collection has no record of who last changed it, and a count is not yet linked to the collection it came from, so "Used for" on a collection is an estimate.
+- The polish reorder point is worked out in two places (the stock list and the colour forecast) and they can differ by a bottle.
 
 - Screens keep their state locally. Saving a count, receipt or adjustment updates that screen only, and choosing a location does not carry to the next page.
 - Polish swatch colours are approximations from the colour family, not the real shades.

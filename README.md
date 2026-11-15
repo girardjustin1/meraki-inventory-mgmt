@@ -27,7 +27,9 @@ The prototype needs no keys.
 
 - **View as**: there is no sign-in yet, so the sidebar (bottom left) lets you see the app as the owner, a manager, front desk or a technician. It opens as the owner.
 - **Search**: Cmd+K (or Ctrl+K, or `/`) finds products, colour codes, orders, flags and pages.
-- **Links**: the address bar carries the view, for example `/stock?loc=newburyport&status=low` or `/flags?severity=high`.
+- **Links**: the address bar carries the view, for example `/stock?loc=newburyport&reorder=1`, `/stock?tab=polish&finish=gel`, `/orders?tab=open&vendor=amazon` or `/flags?severity=high`.
+- **Lists**: Stock, Orders, Counts and Flags let you tick rows and act on them together. On Stock, a quantity is a button: select it to adjust.
+- **Collections**: `/collections` holds saved sets of items (a shelf, a service kit, a count list) to count or order from in one go.
 - **Sign-in** continues to the PIN screen; the prototype PIN is `2580`. An invite link looks like `/invite/mk_7Qp2xV9aLr4TnB6c`.
 - **Scanner**: `/scan` uses demo codes; `/scan?live=1` uses the camera.
 

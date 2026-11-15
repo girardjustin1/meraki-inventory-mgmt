@@ -15,9 +15,9 @@
  * numbers on screen change as soon as real counts and invoices replace the sample layer.
  * In production this module is replaced by Supabase queries returning the same shapes.
  */
+import { resolveCollection } from "@/engine/collections";
 import { addDays, daysBetween } from "@/engine/dates";
 import { buildDigest } from "@/engine/digest";
-import { resolveCollection } from "@/engine/collections";
 import { detectFlags } from "@/engine/flags";
 import { forecastItem } from "@/engine/forecast";
 import { cyclesOf, demandByItem as demandRowsByItem } from "@/engine/insights";
@@ -646,9 +646,25 @@ const polishStock: StockLevel[] = catalog.polishes.map((p) => {
     const variants: StockVariant[] | undefined =
         f && !p.outOfStock
             ? [
-                  { id: "regular" as const, label: "Regular", inUse: open(f.regular.inUse), backstock: f.regular.qty ?? 0, onHand: open(f.regular.inUse) + (f.regular.qty ?? 0), box: f.regular.box ?? undefined },
+                  {
+                      id: "regular" as const,
+                      label: "Regular",
+                      inUse: open(f.regular.inUse),
+                      backstock: f.regular.qty ?? 0,
+                      onHand: open(f.regular.inUse) + (f.regular.qty ?? 0),
+                      box: f.regular.box ?? undefined,
+                  },
                   ...(f.gel.offered || f.gel.inUse || f.gel.qty
-                      ? [{ id: "gel" as const, label: "Gel", inUse: open(f.gel.inUse), backstock: f.gel.qty ?? 0, onHand: open(f.gel.inUse) + (f.gel.qty ?? 0), box: f.gel.box ?? undefined }]
+                      ? [
+                            {
+                                id: "gel" as const,
+                                label: "Gel",
+                                inUse: open(f.gel.inUse),
+                                backstock: f.gel.qty ?? 0,
+                                onHand: open(f.gel.inUse) + (f.gel.qty ?? 0),
+                                box: f.gel.box ?? undefined,
+                            },
+                        ]
                       : []),
               ]
             : undefined;
@@ -884,7 +900,7 @@ const incomingIndex = new Map<string, IncomingLine[]>();
 let incomingBuilt = false;
 // The November sample orders are built from reorder suggestions, which read stock rows, which read
 // this index. So it starts from the imported orders and is rebuilt once every order exists.
-let incomingSource: PurchaseOrder[] | undefined;
+let incomingSource: PurchaseOrder[] | undefined = undefined;
 const buildIncoming = () => {
     incomingIndex.clear();
     for (const po of incomingSource ?? importedOrders) {
@@ -896,7 +912,14 @@ const buildIncoming = () => {
             const key = `${po.locationId}:${line.itemId}`;
             incomingIndex.set(key, [
                 ...(incomingIndex.get(key) ?? []),
-                { orderId: po.id, orderNumber: po.number, qty: open, orderedAt: po.sentAt ?? po.createdAt, ageDays, unconfirmed: ageDays > INCOMING_MAX_AGE_DAYS },
+                {
+                    orderId: po.id,
+                    orderNumber: po.number,
+                    qty: open,
+                    orderedAt: po.sentAt ?? po.createdAt,
+                    ageDays,
+                    unconfirmed: ageDays > INCOMING_MAX_AGE_DAYS,
+                },
             ]);
         }
     }
@@ -990,7 +1013,9 @@ const novemberOrders: PurchaseOrder[] = (() => {
         sent.createdAt = addDays(TODAY, -6);
         sent.sentAt = addDays(TODAY, -5);
     }
-    return [build("nail-supply-store", 1, "awaiting-approval", 14), build("amazon", 2, "draft", 6), approved, sent].filter((po): po is PurchaseOrder => Boolean(po));
+    return [build("nail-supply-store", 1, "awaiting-approval", 14), build("amazon", 2, "draft", 6), approved, sent].filter((po): po is PurchaseOrder =>
+        Boolean(po),
+    );
 })();
 
 export const purchaseOrders: PurchaseOrder[] = [...novemberOrders, ...importedOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -1833,14 +1858,106 @@ const kitItems = (id: string) => (serviceRecipes.find((r) => r.id === id)?.lines
 
 /** Sample collections showing each kind: shelves, service kits, count lists and smart sets. */
 export const collections: Collection[] = [
-    { id: "col-wax-room", name: "Wax Room", description: "Everything stored in the wax room.", kind: "smart", purpose: "shelf", rules: [{ field: "area", op: "is", value: "Wax Room" }], createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -20), isSample: true },
-    { id: "col-cleaning", name: "Cleaning Closet", description: "Paper goods and cleaning supplies.", kind: "smart", purpose: "shelf", rules: [{ field: "area", op: "is", value: "Cleaning Closet" }], createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -20), isSample: true },
-    { id: "col-class-a", name: "Count weekly (class A)", description: "The items that carry most of the spend. Counted every week.", kind: "smart", purpose: "count-list", rules: [{ field: "abc", op: "is", value: "A" }, { field: "kind", op: "is", value: "supply" }], match: "all", createdBy: "u-owner", updatedAt: addDays(TODAY, -9), isSample: true },
-    { id: "col-pedicure", name: "Pedicure station", description: "What a spa pedicure uses. An example kit: edit it to match your stations.", kind: "manual", purpose: "service-kit", itemIds: kitItems("spa-pedicure"), createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -4), isSample: true },
-    { id: "col-dip-kit", name: "Dip powder kit", description: "Liquids and bands for a dip manicure. An example kit.", kind: "manual", purpose: "service-kit", itemIds: kitItems("dip-powder"), createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -4), isSample: true },
-    { id: "col-opi-pinks", name: "OPI pinks", description: "Every OPI lacquer in the Pinks family.", kind: "smart", purpose: "general", rules: [{ field: "line", op: "is", value: "opi" }, { field: "family", op: "is", value: "Pinks" }], match: "all", createdBy: "u-fd-lyn", updatedAt: addDays(TODAY, -2), isSample: true },
-    { id: "col-dazzle", name: "Dazzle Dry system", description: "Base, top and treatments from Dazzle Dry.", kind: "smart", purpose: "general", rules: [{ field: "vendor", op: "is", value: "dazzle-dry" }, { field: "kind", op: "is", value: "supply" }], match: "all", createdBy: "u-mgr-lyn", updatedAt: addDays(TODAY, -30), isSample: true },
-    { id: "col-empty", name: "Holiday specials", description: "Colours and treatments for the winter menu.", kind: "manual", purpose: "general", itemIds: [], createdBy: "u-owner", updatedAt: TODAY, isSample: true },
+    {
+        id: "col-wax-room",
+        name: "Wax Room",
+        description: "Everything stored in the wax room.",
+        kind: "smart",
+        purpose: "shelf",
+        rules: [{ field: "area", op: "is", value: "Wax Room" }],
+        createdBy: "u-mgr-lyn",
+        updatedAt: addDays(TODAY, -20),
+        isSample: true,
+    },
+    {
+        id: "col-cleaning",
+        name: "Cleaning Closet",
+        description: "Paper goods and cleaning supplies.",
+        kind: "smart",
+        purpose: "shelf",
+        rules: [{ field: "area", op: "is", value: "Cleaning Closet" }],
+        createdBy: "u-mgr-lyn",
+        updatedAt: addDays(TODAY, -20),
+        isSample: true,
+    },
+    {
+        id: "col-class-a",
+        name: "Count weekly (class A)",
+        description: "The items that carry most of the spend. Counted every week.",
+        kind: "smart",
+        purpose: "count-list",
+        rules: [
+            { field: "abc", op: "is", value: "A" },
+            { field: "kind", op: "is", value: "supply" },
+        ],
+        match: "all",
+        createdBy: "u-owner",
+        updatedAt: addDays(TODAY, -9),
+        isSample: true,
+    },
+    {
+        id: "col-pedicure",
+        name: "Pedicure station",
+        description: "What a spa pedicure uses. An example kit: edit it to match your stations.",
+        kind: "manual",
+        purpose: "service-kit",
+        itemIds: kitItems("spa-pedicure"),
+        createdBy: "u-mgr-lyn",
+        updatedAt: addDays(TODAY, -4),
+        isSample: true,
+    },
+    {
+        id: "col-dip-kit",
+        name: "Dip powder kit",
+        description: "Liquids and bands for a dip manicure. An example kit.",
+        kind: "manual",
+        purpose: "service-kit",
+        itemIds: kitItems("dip-powder"),
+        createdBy: "u-mgr-lyn",
+        updatedAt: addDays(TODAY, -4),
+        isSample: true,
+    },
+    {
+        id: "col-opi-pinks",
+        name: "OPI pinks",
+        description: "Every OPI lacquer in the Pinks family.",
+        kind: "smart",
+        purpose: "general",
+        rules: [
+            { field: "line", op: "is", value: "opi" },
+            { field: "family", op: "is", value: "Pinks" },
+        ],
+        match: "all",
+        createdBy: "u-fd-lyn",
+        updatedAt: addDays(TODAY, -2),
+        isSample: true,
+    },
+    {
+        id: "col-dazzle",
+        name: "Dazzle Dry system",
+        description: "Base, top and treatments from Dazzle Dry.",
+        kind: "smart",
+        purpose: "general",
+        rules: [
+            { field: "vendor", op: "is", value: "dazzle-dry" },
+            { field: "kind", op: "is", value: "supply" },
+        ],
+        match: "all",
+        createdBy: "u-mgr-lyn",
+        updatedAt: addDays(TODAY, -30),
+        isSample: true,
+    },
+    {
+        id: "col-empty",
+        name: "Holiday specials",
+        description: "Colours and treatments for the winter menu.",
+        kind: "manual",
+        purpose: "general",
+        itemIds: [],
+        createdBy: "u-owner",
+        updatedAt: TODAY,
+        isSample: true,
+    },
 ];
 
 export const getCollection = (id: string) => collections.find((c) => c.id === id);
