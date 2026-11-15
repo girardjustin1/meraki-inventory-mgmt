@@ -72,6 +72,8 @@ export interface HomeNumbers {
     out: number;
     /** Supplies at or below their reorder point, not counting the ones that are out. */
     low: number;
+    /** Supplies the reorder rule suggests ordering, or that someone asked for. Same list as the stock screen's "Needs reorder" view. */
+    reorder?: number;
     openFlags: number;
     highFlags: number;
     /** Order lines not marked received, on orders that are sent or part received. */
@@ -89,7 +91,7 @@ const isStale = (po: PurchaseOrder) => daysBetween(orderedOn(po), TODAY) > INCOM
 const numbersFor = (loc: LocationId): HomeNumbers => {
     const s = summary(loc);
     const unconfirmed = purchaseOrders.filter((po) => po.locationId === loc && isOpenOrder(po) && isStale(po)).reduce((n, po) => n + openLines(po), 0);
-    return { out: s.out, low: s.low, openFlags: s.openFlags, highFlags: s.highFlags, toReceive: s.openOrderLines, unconfirmed };
+    return { out: s.out, low: s.low, reorder: s.reorderLines, openFlags: s.openFlags, highFlags: s.highFlags, toReceive: s.openOrderLines, unconfirmed };
 };
 
 /** The numbers this person can act on. Without `linked` the cells are plain text (another location's row). */
@@ -97,10 +99,10 @@ const numberItems = (n: HomeNumbers, user: User, linked = true): NumberStripItem
     const items: NumberStripItem[] = [
         {
             label: NUMBER_LABELS.reorder,
-            value: n.out + n.low,
+            value: n.reorder ?? n.out + n.low,
             note: n.out > 0 ? `${n.out} out` : undefined,
             noteTone: "bad",
-            href: `${ROUTES.stock}?status=${n.low > 0 || n.out === 0 ? "low" : "out"}`,
+            href: `${ROUTES.stock}?reorder=1`,
         },
     ];
     if (can(user, "flags.view")) {

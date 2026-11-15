@@ -30,7 +30,8 @@ type ParamValue = string | number | boolean | null | undefined;
  */
 export const useUrlSync = (params: Record<string, ParamValue>) => {
     const enabled = useContext(UrlSyncContext);
-    const serialized = JSON.stringify(params);
+    // JSON drops keys whose value is undefined, which would leave a cleared filter in the URL. Keep them as null.
+    const serialized = JSON.stringify(params, (_key, value) => (value === undefined ? null : value));
     useEffect(() => {
         if (!enabled || typeof window === "undefined") return;
         const url = new URL(window.location.href);
