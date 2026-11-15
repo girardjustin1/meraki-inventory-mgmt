@@ -178,7 +178,7 @@ export const DataTableToolbar = ({
                 <AriaButton
                     className={({ isFocusVisible }) =>
                         cx(
-                            "flex min-h-7 cursor-pointer items-center gap-1 rounded-l-full py-0.5 pr-1 pl-2.5 outline-focus-ring max-lg:min-h-9",
+                            "flex min-h-7 cursor-pointer items-center gap-1 rounded-l-full py-0.5 pr-1 pl-2.5 outline-focus-ring max-lg:min-h-11",
                             isFocusVisible && "outline-2",
                         )
                     }
@@ -195,7 +195,7 @@ export const DataTableToolbar = ({
                 onPress={() => setFilter(filter.id, [])}
                 className={({ isFocusVisible }) =>
                     cx(
-                        "flex min-h-7 cursor-pointer items-center rounded-r-full pr-2 pl-1 text-fg-quaternary outline-focus-ring hover:text-fg-quaternary_hover max-lg:min-h-9 max-lg:pr-2.5",
+                        "flex min-h-7 cursor-pointer items-center rounded-r-full pr-2 pl-1 text-fg-quaternary outline-focus-ring hover:text-fg-quaternary_hover max-lg:min-h-11 max-lg:pr-2.5",
                         isFocusVisible && "outline-2",
                     )
                 }
@@ -394,7 +394,7 @@ export const DataTableToolbar = ({
                 <div className="flex items-center gap-2 border-t border-secondary px-2.5 py-2 max-lg:scrollbar-hide max-lg:overflow-x-auto lg:flex-wrap">
                     {chips}
                     {chips.length > 0 && (
-                        <Button color="link-gray" size="sm" className="shrink-0 max-lg:min-h-9 max-lg:px-1" onClick={() => onFiltersChange?.({})}>
+                        <Button color="link-gray" size="sm" className="shrink-0 max-lg:min-h-11 max-lg:px-1" onClick={() => onFiltersChange?.({})}>
                             Clear filters
                         </Button>
                     )}

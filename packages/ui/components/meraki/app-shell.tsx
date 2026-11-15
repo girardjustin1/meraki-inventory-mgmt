@@ -408,7 +408,7 @@ export const CardHeader = ({ title, description, actions }: { title: string; des
  */
 export const SampleDataNote = ({ children, className }: { children?: ReactNode; className?: string }) => (
     <details className={cx("group w-fit max-w-full text-xs text-tertiary", className)}>
-        <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary ring-1 ring-secondary outline-focus-ring ring-inset hover:bg-secondary_hover focus-visible:outline-2">
+        <summary className="relative flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary ring-1 ring-secondary outline-focus-ring ring-inset hover:bg-secondary_hover focus-visible:outline-2 max-lg:after:absolute max-lg:after:inset-x-0 max-lg:after:-inset-y-2.5">
             <span className="size-1.5 rounded-full bg-fg-warning-secondary" aria-hidden="true" />
             Prototype data
             <span className="text-quaternary group-open:hidden">· what is real?</span>
