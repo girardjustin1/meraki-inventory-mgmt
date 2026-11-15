@@ -199,6 +199,9 @@ def scrub(text):
         return text
     for n in STAFF_NAMES:
         text = re.sub(rf"(?i)\b{re.escape(n)}\b", "staff", text)
+    # Notes sometimes name whose client an item is held for ("for <Name> client"). Keep the fact, drop the name.
+    text = re.sub(r"\bfor\s+[A-Z][a-z]+(?:'s)?\s+client\b", "for a client", text)
+    text = re.sub(r"\b[A-Z][a-z]+'s\s+client\b", "a client", text)
     return text
 
 
