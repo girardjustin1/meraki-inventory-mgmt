@@ -70,6 +70,20 @@ export const ROUTES = {
     lock: "/lock",
 } as const;
 
+/** The Meraki logo. Wherever it appears in the app it goes to Home. */
+const HomeLogoLink = ({ className, logoClassName }: { className?: string; logoClassName?: string }) => (
+    <a
+        href={ROUTES.home}
+        aria-label="Meraki Inventory, home"
+        className={cx(
+            "flex items-center rounded-md outline-focus-ring transition duration-100 ease-linear hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4",
+            className,
+        )}
+    >
+        <MerakiLogo className={logoClassName} />
+    </a>
+);
+
 const count = (n: number, color: "gray" | "error" | "warning" = "gray") =>
     n > 0 ? (
         <Badge size="sm" type="pill-color" color={color}>
@@ -268,7 +282,7 @@ export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationCh
                 <SidebarNavigationSimple
                     logo={
                         <div className="flex flex-col gap-4">
-                            <MerakiLogo className="h-7 self-start" />
+                            <HomeLogoLink className="self-start" logoClassName="h-7" />
                             {switcher("sm")}
                         </div>
                     }
@@ -319,7 +333,7 @@ export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationCh
 
             {!immersive && (
                 <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-secondary bg-primary/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
-                    <MerakiLogo className="h-6 shrink-0" />
+                    <HomeLogoLink className="min-h-11 shrink-0" logoClassName="h-6" />
                     <div className="flex min-w-0 items-center gap-0.5">
                         {switcher("sm")}
                         <button
