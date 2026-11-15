@@ -1,0 +1,22 @@
+# Meraki Inventory — notes for AI assistants
+
+- npm workspaces monorepo: `packages/ui` (design system, Storybook, all screens, the data layer and the engine; `@meraki/ui`) and `apps/web` (Next.js 16; `@meraki/inventory-web`).
+- `.npmrc` sets `legacy-peer-deps=true` (upstream Untitled UI pins ESLint 10). Keep it.
+- `packages/ui` follows the Untitled UI conventions in `packages/ui/CLAUDE.md`: kebab-case files, `Aria*` prefix for react-aria-components imports, `@/` path aliases, Tailwind v4 semantic tokens, never raw hex.
+- Vendored Untitled UI files: keep edits minimal and mark them `[Meraki]`.
+- Theme follows merakispainc.com: Figtree, Instrument Serif italic accent (`<em>` in an `h1`), aqua primary buttons with `text-ink`, deep teal controls. Tokens are in `packages/ui/styles/theme.css`.
+- Meraki components go in `packages/ui/components/meraki/`; screens in `packages/ui/screens/<name>/` with a `*.story.tsx` beside each (Desktop and Mobile stories). Annotate `const meta: Meta<typeof X>`; `satisfies` breaks under `declaration: true`.
+- `packages/ui/engine/` is pure TypeScript (forecast, flags, digest, stock status). No I/O, no React. It has tests: `npm run test:engine`. The reorder rule is `suggestOrderQty` in `engine/forecast.ts`; do not re-derive it in screens.
+- `packages/ui/data/inventory.ts` is the prototype data layer: real catalogue and 2026 orders from `data/seed/*.json`, plus a generated sample layer flagged `isSample` / `costIsSample`. Keep `SampleDataNote` on screens until Supabase holds real data.
+- `references/` holds the client's spreadsheets and private files. It is git-ignored. Never commit it, never copy staff names from it into the repo. `tools/import/import_spreadsheets.py` regenerates the seed JSON with names removed.
+- The app must run with no service keys set (prototype mode). Clerk, Supabase and Resend are skipped when not configured: see `apps/web/lib/env.ts`.
+- Checks: `npm run type-check`, `npm run test:engine`, `npm run test:db`, `npm run build-storybook`, `npm run build`.
+- Permissions: `packages/ui/engine/permissions.ts` (`can`, `isAdmin`, `ROLE_GRANTS`) is the single source for the UI. Check permissions with `can(user, "…")`, never with `user.role === …`. The SQL in `supabase/migrations/0002_access_and_invites.sql` mirrors `ROLE_GRANTS`, and `npm run test:db` fails when they differ: change both together.
+- Deep links: screens mirror view state into the URL with `useUrlSync` (`packages/ui/utils/url-sync.tsx`) and take matching `initial…` props; each page in `apps/web/app` reads the query string through `lib/view-params.ts`. Add both sides when a screen gains a tab or filter.
+- Who is using the app: `viewer()` on the server (`apps/web/lib/view-params.ts`) and `useViewer()` on the client. In the prototype it is the "view as" cookie; with Clerk connected it becomes the signed-in profile. Pages pass `user={await viewer()}` to screens that take a user.
+- Notes use mention tokens (`@[user-id]`); see `packages/ui/engine/mentions.ts`. Order sending text (email drafts, pick lists, cart links) comes from `packages/ui/engine/order-send.ts`.
+- Lists share one pattern: `DataTableToolbar` (views, search, filters, sort, columns) above a one-line table from `list-table.tsx` (`ListTable`, `ListCards`, `useListSelection`), with `BulkActionBar` when rows are selected. A bulk action that does not apply to some rows runs for the rest and says what was skipped and why. Stock (`screens/stock/`) is the reference.
+- Detail pages share: `SaveBar` (the only save control on a page), `DetailRail`, `FieldChips`, and `ProductPicker` for adding items (pass `lockVendor` on a purchase order: an order goes to one vendor).
+- Display names for codes (polish lines, order channels) live in `packages/ui/data/labels.ts`. Do not re-declare them in a screen.
+- `useUrlSync`: pass `undefined` or `null` to remove a parameter. Storybook's dev server can miss Tailwind classes that are new to the project until `styles/globals.css` is re-read (`touch` it).
+- `tools/dev/cdp.mjs` drives headless Chrome with real key presses and clicks; use it to check interactive behaviour.

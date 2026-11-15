@@ -1,0 +1,1035 @@
+{
+  "generatedAt": "2026-11-14",
+  "note": "Reference data gathered from public manufacturer/distributor pages. Image URLs are hot-links for prototype use only.",
+  "fieldNotes": "upc is a GTIN that passed check-digit validation (UPC-A 12 digits or EAN-13); null means not published or not verifiable. confidence: high = manufacturer page with published code; medium = distributor-sourced or size/variant uncertain; low = product not found or match unconfirmed. notes explains every caveat.",
+  "products": [
+    {
+      "key": "nugenesis-dip-prep-bottle",
+      "matchNames": [
+        "Nugenesis Prep Liquid (1) Yellow - Bottle",
+        "Nugenesis Prep Liquid 1",
+        "NuGenesis Dip Prep",
+        "Nugen Prep"
+      ],
+      "name": "NuGenesis Prep Liquid 1 (Dip Powder System)",
+      "brand": "NuGenesis Nails",
+      "description": "Step 1 of the NuGenesis dip powder system. A nail prep liquid that removes surface moisture and oils from the natural nail so the dip layers adhere.",
+      "size": "0.5 oz bottle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0790/2639/products/Liquid1-Edit.jpg?v=1697248141",
+      "sourceUrl": "https://nugenesisnails.com/products/prep-liquid-1-dip-powder-system",
+      "upc": "875520003103",
+      "manufacturerSku": "PREP 0.5",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "nugenesis-dip-prep-refill",
+      "matchNames": [
+        "Nugenesis Prep Liquid (1) Yellow - Refill",
+        "1A - Nugen Prep Refill",
+        "Nugen Prep Refill"
+      ],
+      "name": "NuGenesis Prep Liquid 1 (Dip Powder System) - Refill",
+      "brand": "NuGenesis Nails",
+      "description": "Refill size of the step 1 prep liquid for the NuGenesis dip powder system, used to top up the 0.5 oz brush bottles.",
+      "size": "2 oz refill",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0790/2639/products/Liquid1-Edit.jpg?v=1697248141",
+      "sourceUrl": "https://nugenesisnails.com/products/prep-liquid-1-dip-powder-system",
+      "upc": "875520003158",
+      "manufacturerSku": "PREP 2.0",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "nugenesis-gel-base-bottle",
+      "matchNames": [
+        "Nugenesis Base Gel (2) Pink - Bottle",
+        "1A - Nugen Base",
+        "Nugenesis Gel Base",
+        "Nugen Base"
+      ],
+      "name": "NuGenesis Base Gel 2 (Dip Powder System)",
+      "brand": "NuGenesis Nails",
+      "description": "Step 2 of the NuGenesis dip powder system. A brush-on base (resin) applied before each dip into the powder.",
+      "size": "0.5 oz bottle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0790/2639/products/Liquid2-Edit.jpg?v=1697247443",
+      "sourceUrl": "https://nugenesisnails.com/products/base-gel-2-dip-powder-system",
+      "upc": "875520003110",
+      "manufacturerSku": "BASE 0.5",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "nugenesis-gel-base-refill",
+      "matchNames": [
+        "Nugenesis Base Gel (2) Pink - Refill",
+        "Nugen Base Refill"
+      ],
+      "name": "NuGenesis Base Gel 2 (Dip Powder System) - Refill",
+      "brand": "NuGenesis Nails",
+      "description": "Refill size of the step 2 dip base for the NuGenesis dip powder system.",
+      "size": "2 oz refill",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0790/2639/products/Liquid2-Edit.jpg?v=1697247443",
+      "sourceUrl": "https://nugenesisnails.com/products/base-gel-2-dip-powder-system",
+      "upc": "875520003165",
+      "manufacturerSku": "BASE 2.0",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "nugenesis-activator-bottle",
+      "matchNames": [
+        "Nugenesis Activator Liquid (3) Blue - Bottle",
+        "1A - Nugen Activator",
+        "Nugenesis Activator",
+        "Nugen Activator"
+      ],
+      "name": "NuGenesis Activator Liquid 3 (Dip Powder System)",
+      "brand": "NuGenesis Nails",
+      "description": "Step 3 of the NuGenesis dip powder system. An activator that hardens and seals the dip powder layers before shaping and top coat.",
+      "size": "0.5 oz bottle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0790/2639/products/Liquid3-Edit.jpg?v=1697247669",
+      "sourceUrl": "https://nugenesisnails.com/products/activator-liquid-3-dip-powder-system",
+      "upc": null,
+      "manufacturerSku": "ACTI 0.5",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "The manufacturer's site publishes an 11-digit barcode for this variant ('87552003127'), which is malformed. The sibling codes suggest 875520003127 (which passes the check digit) but this was not confirmed, so upc is null. Scan a bottle to confirm."
+    },
+    {
+      "key": "nugenesis-activator-refill",
+      "matchNames": [
+        "Nugenesis Activator Liquid (3) Blue - Refill",
+        "1A - Nugen Activator Refill",
+        "Nugen Activator Refill"
+      ],
+      "name": "NuGenesis Activator Liquid 3 (Dip Powder System) - Refill",
+      "brand": "NuGenesis Nails",
+      "description": "Refill size of the step 3 activator for the NuGenesis dip powder system.",
+      "size": "2 oz refill",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0790/2639/products/Liquid3-Edit.jpg?v=1697247669",
+      "sourceUrl": "https://nugenesisnails.com/products/activator-liquid-3-dip-powder-system",
+      "upc": "875520003172",
+      "manufacturerSku": "ACTI 2.0",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "seche-vite-top-coat-bottle",
+      "matchNames": [
+        "Seche Vite  Top Coat - Bottle",
+        "Seche Vite Top Coat - Bottle",
+        "1A - Seche Vite Top Coat",
+        "Seche Vite Dry Fast Top Coat"
+      ],
+      "name": "Seche Vite Dry Fast Top Coat (listed by Seche as Quick Dry Top Coat)",
+      "brand": "Seche",
+      "description": "Fast-drying, high-gloss top coat for regular nail lacquer. The formula bonds through the polish to the base coat to form a single hard layer.",
+      "size": "0.5 oz bottle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0707/4784/8761/files/83100.jpg?v=1739338879",
+      "sourceUrl": "https://seche.com/products/vite-dry-fast-top-coat-0-5-oz",
+      "upc": "809217905012",
+      "manufacturerSku": "83005",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "seche-vite-top-coat-refill",
+      "matchNames": [
+        "Seche Vite Top Coat - Refill",
+        "2B - Seche Vite Refill",
+        "2B Seche Vite Top Coat Refill"
+      ],
+      "name": "Seche Vite Dry Fast Top Coat - Professional Kit (4 oz refill + 0.5 oz bottle)",
+      "brand": "Seche",
+      "description": "Professional size of Seche Vite: a 4 oz refill bottle sold with a 0.5 oz brush bottle, used to top up service bottles.",
+      "size": "4 oz refill + 0.5 oz bottle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0358/0369/3193/files/VITE-PRO.jpg?v=1730314942",
+      "sourceUrl": "https://skylinebeautysupply.com/products/seche-vite-dry-fast-top-coat-pro-size-4-oz",
+      "upc": "809217945018",
+      "manufacturerSku": "83050",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "UPC and item number come from distributor listings (Skyline Beauty Supply, Beyond Polish / Sleek Nail agree). The 4 oz size is not listed on seche.com's consumer store. If the salon buys a refill-only bottle rather than the kit, its code may differ."
+    },
+    {
+      "key": "igel-no-cleanse-top-coat",
+      "matchNames": [
+        "iGEL Beauty Non-Cleansing Gel Top Coat",
+        "iGel Beauty No Cleanse Gel Top Coat",
+        "iGel No Cleanse Top Coat"
+      ],
+      "name": "iGel No Cleanse Top Coat",
+      "brand": "iGel Beauty",
+      "description": "Soak-off LED/UV gel top coat that cures without a tacky layer, so it does not need an alcohol wipe after curing.",
+      "size": "0.5 oz (15 mL)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1282/1309/products/03-16-2022-iGelDualNoCleanseTopCoatA.png?v=1647425807",
+      "sourceUrl": "https://igelbeauty.com/products/igel-no-cleanse-top-coat-0-5-oz",
+      "upc": "766150110173",
+      "manufacturerSku": "IG-TOP-NOCLNS-05OZ",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "SKU, image and description are from igelbeauty.com, which publishes no barcode for this item. The UPC is from one distributor listing (nailcompany.com). An 8 oz refill (IG-TOP-NOCLNS-8OZ) also exists."
+    },
+    {
+      "key": "opi-nail-envy-original",
+      "matchNames": [
+        "Nail Envy Nail Strengthener",
+        "OPI Nail Envy",
+        "OPI Nail Envy Nail Strengthener"
+      ],
+      "name": "OPI Nail Envy Nail Strengthener (Original, Tri-Flex formula)",
+      "brand": "OPI",
+      "description": "Clear nail strengthening treatment used as a base coat or on its own. Current version is the vegan Tri-Flex formula.",
+      "size": "15 mL (0.5 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/nail-envy-original-ntt80-treatments-strengtheners-99399000050-2000x2477.jpg?v=1679432929",
+      "sourceUrl": "https://www.opi.com/products/treatments-strengtheners-nail-envy-nail-strengthener",
+      "upc": "4064665205794",
+      "manufacturerSku": "NTT80",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "GTIN published on opi.com and matched by two distributors. OPI's internal item number is 99399000050. Older pre-2023 bottles (NT T80) carry a different code."
+    },
+    {
+      "key": "ibd-powerbond",
+      "matchNames": [
+        "IBD Power Bonder - Gel Bonder, Liquid",
+        "IBD Power Bond",
+        "IBD Powerbond",
+        "2A - Liquid Gel Bonder"
+      ],
+      "name": "IBD Powerbond",
+      "brand": "IBD",
+      "description": "Liquid bonding primer applied to the prepared natural nail to improve adhesion of IBD gels and gel polish.",
+      "size": "0.5 oz (14 mL)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0870/2574/files/IBD-Powerbond-0_5Oz-Cleansers-Removers-at-Beyond-Polish_340dc2f3.jpg?v=1743636048",
+      "sourceUrl": "https://beyondpolish.com/products/ibd-powerbond-0-5oz",
+      "upc": "039013565015",
+      "manufacturerSku": "56501",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "Powerbond is not listed on ibdbeauty.com's current store, so data is from distributors (Beyond Polish, Sleek Nail and Universal Nail Supplies agree on the UPC). IBD's site lists a different product, LED/UV Bonder (item 56844, UPC 039013568443), which is a gel bonder; confirm which one the salon stocks."
+    },
+    {
+      "key": "ibd-hard-gel-builder-pink",
+      "matchNames": [
+        "IBD Hard Gel - LED/UV Builder Gel - Pink",
+        "IBD Builder Gel Pink",
+        "IBD Hard Gel LED/UV Builder Gel Pink"
+      ],
+      "name": "IBD Hard Gel LED/UV Builder Gel - Pink",
+      "brand": "IBD",
+      "description": "Self-levelling pink hard builder gel for sculpting and overlays, cured under LED or UV lamps. Hard gel is filed off rather than soaked off.",
+      "size": "2 oz (56 g) jar; also sold as a 0.5 oz jar",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0907/1535/7494/files/56839.jpg?v=1734463751",
+      "sourceUrl": "https://ibdbeauty.com/products/ibd-hard-gel-led-uv-builder-pink",
+      "upc": "039013568320",
+      "manufacturerSku": "56832",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "UPC and item number are for the 2 oz jar, from distributor listings (Skyline Beauty Supply, Universal Nail Supplies). Image and description are from ibdbeauty.com's 0.5 oz listing (item 56839), which publishes no barcode."
+    },
+    {
+      "key": "opi-gelcolor-stay-classic-base-coat",
+      "matchNames": [
+        "OPI Gel Base Coat",
+        "OPI GelColor Base Coat",
+        "OPI GelColor Stay Classic Base Coat"
+      ],
+      "name": "OPI GelColor Stay Classic Base Coat",
+      "brand": "OPI",
+      "description": "Soak-off gel base coat for the OPI GelColor system, cured under an LED lamp before colour is applied.",
+      "size": "15 mL (0.5 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0870/2574/files/OPI-GelColor-Stay-Classic-Base-Coat-0_5-oz-GC001-Top-Base-Coats-at-Beyond-Polish.jpg?v=1743645805",
+      "sourceUrl": "https://beyondpolish.com/products/opi-gelcolor-stay-classic-base-coat-0-5-oz-gc001",
+      "upc": "3616300769997",
+      "manufacturerSku": "GC001",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "OPI has replaced Stay Classic with Intelli-Gel Super Base Base Coat under the same item code GC001 (https://www.opi.com/products/top-base-coats-super-base-base-coat). opi.com still shows GTIN 3616300769997 on that page; distributors list the new Intelli-Gel bottle as 4064665116724. Expect either code depending on stock age."
+    },
+    {
+      "key": "opi-bond-aid",
+      "matchNames": [
+        "OPI Bond Aid",
+        "OPI BondAid pH Balancing Agent",
+        "Bond Aid"
+      ],
+      "name": "OPI Bond Aid pH Balancing Agent",
+      "brand": "OPI",
+      "description": "Nail prep liquid brushed onto the natural nail to balance pH and remove surface moisture before gel, dip or acrylic services.",
+      "size": "13 mL (0.44 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/bond-aid-ph-balancing-agent-bb012-dipping-powders-22001501000_e682b4c3-8f05-47cb-b110-2080487e5abc.jpg?v=1670344546",
+      "sourceUrl": "https://www.opi.com/products/bond-aid-ph-balancing-agent",
+      "upc": "094100009957",
+      "manufacturerSku": "BB012",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "opi.com publishes the GTIN without its leading zero (94100009957); stored here as 12-digit UPC-A. The small bottle also carries the short UPC-E form 09499517. A 30 mL size (BB010, UPC 094100009964 per one distributor) also exists."
+    },
+    {
+      "key": "opi-bond-aid-refill",
+      "matchNames": [
+        "OPI BondAid pH Balancing Agent Refill",
+        "OPI Bond Aid Refill"
+      ],
+      "name": "OPI Bond Aid pH Balancing Agent - Refill",
+      "brand": "OPI",
+      "description": "Professional refill size of OPI Bond Aid, used to top up the small brush bottles at the nail stations.",
+      "size": "104 mL (3.5 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/bond-aid-ph-balancing-agent-bb012-dipping-powders-22001501000_e682b4c3-8f05-47cb-b110-2080487e5abc.jpg?v=1670344546",
+      "sourceUrl": "https://skylinebeautysupply.com/products/opi-bondaid-ph-balancing-agent",
+      "upc": "619828013194",
+      "manufacturerSku": "BB020",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "The 3.5 oz refill is professional-only and not listed on opi.com. UPC and item code are from two distributors (Skyline Beauty Supply, Nail Company). The image shown is OPI's image of the small bottle."
+    },
+    {
+      "key": "opi-drip-dry",
+      "matchNames": [
+        "OPI Drip Dry",
+        "OPI Drip Dry Lacquer Drying Drops"
+      ],
+      "name": "OPI Drip Dry Lacquer Drying Drops",
+      "brand": "OPI",
+      "description": "Drying drops applied over wet nail lacquer to speed up drying; OPI states polish is set in about 60 seconds.",
+      "size": "27 mL (0.91 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/drip-dry-al711-drying-agents-finishers-22002357000.jpg?v=1668022305",
+      "sourceUrl": "https://www.opi.com/products/drying-agents-finishers-drip-dry",
+      "upc": "619828011039",
+      "manufacturerSku": "AL714",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "opi.com lists three sizes: 8 mL (GTIN 619828011046), 27 mL (619828011039) and a pro-only 120 mL (619828428103). The 27 mL code is also confirmed by a distributor. Item code AL714 is the long-standing code for the 27 mL size and was not shown on the page; confirm which size the salon stocks."
+    },
+    {
+      "key": "orly-bonder",
+      "matchNames": [
+        "ORLY Bonder Rubberized Basecoat",
+        "Orly Bonder"
+      ],
+      "name": "ORLY Bonder Rubberized Basecoat",
+      "brand": "ORLY",
+      "description": "Rubberized base coat for regular nail lacquer that grips polish to the nail for longer wear.",
+      "size": "Standard bottle (size not stated in source data; refill and mini sizes also sold)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0015/0185/5843/files/bonder-997534.jpg?v=1762439990",
+      "sourceUrl": "https://orlybeauty.com/products/orly-bonder",
+      "upc": "079245241103",
+      "manufacturerSku": "24110",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "orly-bonder-refill",
+      "matchNames": [
+        "ORLY Bonder Rubberized Basecoat Refill",
+        "Orly Bonder Refill"
+      ],
+      "name": "ORLY Bonder Rubberized Basecoat - 4 oz Refill",
+      "brand": "ORLY",
+      "description": "Refill size of ORLY's rubberized base coat, used to top up service bottles.",
+      "size": "4 fl oz refill (an 8 oz refill, item 24118, UPC 079245241189, is also sold)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0015/0185/5843/files/ORLY_Bonder_4Fl_Oz.png?v=1762439575",
+      "sourceUrl": "https://orlybeauty.com/products/bonder-4oz",
+      "upc": "079245241141",
+      "manufacturerSku": "24114",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "dazzle-dry-base-coat",
+      "matchNames": [
+        "Dazzle Dry Base Coat"
+      ],
+      "name": "Dazzle Dry Base Coat",
+      "brand": "Dazzle Dry",
+      "description": "Step 2 of the Dazzle Dry four-step lacquer system. A base coat formulated for natural nails, applied in two layers that dry matte.",
+      "size": "0.5 oz (Full)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2657/6552/files/001_Base-Coat---Full.png?v=1751923507",
+      "sourceUrl": "https://dazzledry.com/products/base-coat-1",
+      "upc": "666134012588",
+      "manufacturerSku": "18DDBC001",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "A 0.17 oz mini (18DDMN003, UPC 666134021580) is also sold."
+    },
+    {
+      "key": "dazzle-dry-base-coat-refill",
+      "matchNames": [
+        "Dazzle Dry Base Coat Refill"
+      ],
+      "name": "Dazzle Dry Base Coat - 8 oz Professional Refill",
+      "brand": "Dazzle Dry",
+      "description": "Salon refill size of the Dazzle Dry base coat (step 2), used to top up the 0.5 oz service bottles. Sold through the Dazzle Dry Pro store.",
+      "size": "8 oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0166/9801/5844/files/Base-coat-grey.jpg?v=1756999644",
+      "sourceUrl": "https://pro.dazzledry.com/products/base-coat",
+      "upc": "666134012915",
+      "manufacturerSku": "18DDBC004",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "From the Dazzle Dry Pro store's public catalogue; ordering requires an approved pro account."
+    },
+    {
+      "key": "dazzle-dry-top-coat",
+      "matchNames": [
+        "Dazzle Dry Top Coat"
+      ],
+      "name": "Dazzle Dry Top Coat",
+      "brand": "Dazzle Dry",
+      "description": "Step 4 of the Dazzle Dry four-step lacquer system. A quick-drying, non-yellowing, high-gloss top coat.",
+      "size": "0.5 oz (Full)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2657/6552/files/001_top-Coat---Full.png?v=1751923392",
+      "sourceUrl": "https://dazzledry.com/products/top-coat-1",
+      "upc": "666134011185",
+      "manufacturerSku": "18DDTC001",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "dazzle-dry-top-coat-refill",
+      "matchNames": [
+        "Dazzle Dry Top Coat Refill"
+      ],
+      "name": "Dazzle Dry Top Coat - 8 oz Professional Refill",
+      "brand": "Dazzle Dry",
+      "description": "Salon refill size of the Dazzle Dry top coat (step 4), used to top up the 0.5 oz service bottles. Sold through the Dazzle Dry Pro store.",
+      "size": "8 oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0166/9801/5844/files/top-coat-grey.png?v=1756999550",
+      "sourceUrl": "https://pro.dazzledry.com/products/top-coat",
+      "upc": "666134012892",
+      "manufacturerSku": "18DDTC004",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "From the Dazzle Dry Pro store's public catalogue; ordering requires an approved pro account."
+    },
+    {
+      "key": "dazzle-dry-nail-prep",
+      "matchNames": [
+        "Dazzle Dry Nail Prep Nail Primer",
+        "Dazzle Dry Nail Prep"
+      ],
+      "name": "Dazzle Dry Nail Prep",
+      "brand": "Dazzle Dry",
+      "description": "Step 1 of the Dazzle Dry four-step lacquer system. A cleanser that removes oils and residue from the nail plate before base coat.",
+      "size": "4 oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2657/6552/files/Nail-Prep.png?v=1755286854",
+      "sourceUrl": "https://dazzledry.com/products/nail-prep-1",
+      "upc": "666134022204",
+      "manufacturerSku": "23DDPC202",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "The Dazzle Dry Pro store also lists a 1 oz (23DDPC201, UPC 666134012717) and a 32 oz (23DDPC203, UPC 666134012687) size."
+    },
+    {
+      "key": "dazzle-dry-revive",
+      "matchNames": [
+        "Dazzle Dry Revive"
+      ],
+      "name": "Dazzle Dry Revive",
+      "brand": "Dazzle Dry",
+      "description": "Thinner that restores the consistency of Dazzle Dry top coat and lacquers that have thickened. Must not be added to the base coat.",
+      "size": "0.5 oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2657/6552/files/revive-corrected.png?v=1771606636",
+      "sourceUrl": "https://dazzledry.com/products/revive",
+      "upc": "666134012946",
+      "manufacturerSku": "18DDTH001",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "Size confirmed on the Dazzle Dry Pro store, which also lists an 8 oz size (18DDREVIVE-VB, UPC 666134012922)."
+    },
+    {
+      "key": "dazzle-dry-mattify",
+      "matchNames": [
+        "Dazzle Dry Mattify",
+        "Dazzle Dry Mattify Top Coat"
+      ],
+      "name": "Dazzle Dry Mattify Top Coat",
+      "brand": "Dazzle Dry",
+      "description": "Quick-drying, non-yellowing top coat that gives Dazzle Dry lacquer a matte finish.",
+      "size": "0.5 oz (Full)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2657/6552/files/001_Matify--_Full.png?v=1755291516",
+      "sourceUrl": "https://dazzledry.com/products/mattify-top-coat",
+      "upc": "666134013790",
+      "manufacturerSku": "18DDTC005",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "barbicide-disinfectant-concentrate",
+      "matchNames": [
+        "Barbicide",
+        "Barbicide Disinfectant",
+        "Barbicide Disinfectant Concentrate",
+        "Barbicide Concentrate"
+      ],
+      "name": "Barbicide Disinfectant Concentrate",
+      "brand": "Barbicide (King Research)",
+      "description": "EPA-registered blue disinfectant concentrate that is diluted with water to disinfect combs, implements and other non-porous salon tools.",
+      "size": "64 fl oz (also sold in 16 fl oz and 1 gallon)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0358/0369/3193/files/193119_1.jpg?v=1717710742",
+      "sourceUrl": "https://skylinebeautysupply.com/products/barbicide-64oz",
+      "upc": "017922564213",
+      "manufacturerSku": "56421",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "UPC shown is for the 64 oz bottle (three distributors agree). The 16 oz bottle is 017922516113 (two distributors). One distributor lists the gallon as 017922506749. Set the UPC to match the size the salon actually buys. Data is from distributor pages, not barbicide.com."
+    },
+    {
+      "key": "spa-redi-callus-remover-gallon",
+      "matchNames": [
+        "Spa Redi Callus Remover",
+        "SpaRedi Callus Remover"
+      ],
+      "name": "Spa Redi Callus Remover Gel - 1 Gallon",
+      "brand": "Spa Redi",
+      "description": "Thick callus-softening gel applied to the feet during pedicures to break down hardened skin before filing.",
+      "size": "1 gallon (128 fl oz); sold in Lemon Lime, Mint Eucalyptus and other scents",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0685/0851/6584/files/SpaRedi-Callus-No-More-Lemon-Lime-128oz_e1fccaba-38f9-411d-aa71-b93e78ac9c09.png?v=1743537637",
+      "sourceUrl": "https://nailcompany.com/products/spa-redi-callus-remover-1-gallon-lemon-lime",
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "No barcode is published for the gallon on the distributor pages checked. Image is from Premier Nail Source's Lemon & Lime gallon listing; the scent the salon uses is not known."
+    },
+    {
+      "key": "cre8tion-disposable-pedicure-liners",
+      "matchNames": [
+        "Cre8tion Disposable Pedicure Liners",
+        "Cre8tion Disposable Spa Liner"
+      ],
+      "name": "Cre8tion Disposable Spa Liner (Blue)",
+      "brand": "Cre8tion",
+      "description": "Single-use plastic liners for pedicure tubs, removed after each client so the basin does not need scrubbing between services.",
+      "size": "Case of 400 liners",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0683/4284/1496/files/BlueLIner_Sq_ecba9c5d-ba48-4c2f-bdf3-40a7ef0b8b61.png?v=1788023708",
+      "sourceUrl": "https://cre8tionproducts.com/products/cre8tion-disposable-spa-liner-blue",
+      "upc": "192175012466",
+      "manufacturerSku": "10191",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "cre8tion-toe-separators",
+      "matchNames": [
+        "Cre8tion Toe Seaparators",
+        "Cre8tion Toe Separators"
+      ],
+      "name": "Cre8tion Toe Separators, 3 Holes, EVA Foam",
+      "brand": "Cre8tion",
+      "description": "Soft EVA foam toe separators that keep toes apart while polish or gel is applied and sets.",
+      "size": "Bag of 100 pairs",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0683/4284/1496/files/50427.jpg?v=1788024196",
+      "sourceUrl": "https://cre8tionproducts.com/products/10030",
+      "upc": "192175018352",
+      "manufacturerSku": "10030",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": null
+    },
+    {
+      "key": "cre8tion-nail-file-zebra-80-100",
+      "matchNames": [
+        "Cre8tion Nail File, Zebra 80/100 (Acrylic Files)",
+        "Cre8tion Nail File Zebra 80/100"
+      ],
+      "name": "Cre8tion Nail File Regular Zebra Grit 80/100",
+      "brand": "Cre8tion",
+      "description": "Zebra-pattern nail file with a coarse 80/100 grit, used for shaping acrylic and other enhancements.",
+      "size": "Pack of 50 files",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0683/4284/1496/files/REGULARZebra_0.jpg?v=1788023253",
+      "sourceUrl": "https://cre8tionproducts.com/products/cre8tion-nail-file-regular-zebra-grit-50-pcs-pack-premium-usa-standard",
+      "upc": null,
+      "manufacturerSku": "07024",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "Cre8tion sells three zebra 80/100 files: Regular (07024), Jumbo (07029) and Harbor Bridge (07072). The Regular shape is assumed here; no barcode is published for any of them."
+    },
+    {
+      "key": "milken-sanding-bands-white-medium-150",
+      "matchNames": [
+        "Milken 100 Sanding Bands - White Medium 150",
+        "2A - Sanding Bands",
+        "Sanding Bands"
+      ],
+      "name": "Milken White Sanding Bands - Medium 150 Grit (100 ct)",
+      "brand": "Milken",
+      "description": "Single-use white sanding bands that fit a standard e-file mandrel, in medium 150 grit for general shaping and product removal.",
+      "size": "Bag of 100",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0007/9744/2107/products/mediumsandingbans.jpg?v=1600981970",
+      "sourceUrl": "https://nailcompany.com/products/milken-white-sanding-band-medium-100ct",
+      "upc": "654469198923",
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "UPC is from one distributor (nailcompany.com) and sits in the same number series another distributor lists for the fine and coarse versions."
+    },
+    {
+      "key": "milken-sanding-bands-burgundy-medium-150",
+      "matchNames": [
+        "Milken 100 Sanding Bands - Burgundy Medium 150"
+      ],
+      "name": "Milken Brown Sanding Bands - Medium 150 Grit (100 ct)",
+      "brand": "Milken",
+      "description": "Single-use brown (burgundy) sanding bands that fit a standard e-file mandrel, in medium 150 grit.",
+      "size": "Bag of 100",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0720/0322/3737/files/Milken-100-Brown-Sanding-Band-Medium-150-Grit.jpg?v=1757953048",
+      "sourceUrl": "https://monesupply.ca/products/milken-brown-sanding-band-medium-150-grit-100pcs",
+      "upc": "654469198961",
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "low",
+      "notes": "The salon's sheet calls this colour Burgundy; the only matching listing found calls it Brown. Treat the match and UPC as unconfirmed until a bag is scanned."
+    },
+    {
+      "key": "apres-gel-x-tips-natural-almond-medium",
+      "matchNames": [
+        "Apres Gel X Nail Tips",
+        "Aprés Gel-X Tips Natural Almond Medium",
+        "Apres Gel-X Natural Almond Medium"
+      ],
+      "name": "Aprés Gel-X Natural Almond Medium Box of Tips - Pro (600 pcs)",
+      "brand": "Aprés Nail",
+      "description": "Box of pre-shaped soft gel full-cover nail extension tips in the Natural Almond Medium shape, applied with Aprés Extend Gel.",
+      "size": "600 tips, 14 sizes",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0027/8836/0250/files/ApresWebsite_2025_NewLabel_TipsBoxCover_NAM.jpg?v=1769630864",
+      "sourceUrl": "https://apresnail.com/products/gel-x-natural-almond-medium-box-of-tips",
+      "upc": "840298400850",
+      "manufacturerSku": "APGX-N-AM-2.0",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "Name, SKU and image are from apresnail.com; the UPC is from two distributors (Skyline Beauty Supply, Sleek Nail). The salon stocks several shapes and lengths, each with its own code; this entry covers one example."
+    },
+    {
+      "key": "apres-extend-gel",
+      "matchNames": [
+        "Apres Gel X Extend Gel",
+        "Aprés Gel-X Extend Gel",
+        "Apres Extend Gel"
+      ],
+      "name": "Aprés Extend Gel (original formula)",
+      "brand": "Aprés Nail",
+      "description": "Soft gel adhesive used to bond Gel-X extension tips to the natural nail; cured under an LED lamp and soaks off.",
+      "size": "15 mL jar",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0027/8836/0250/products/Apres_ExtendGel_Jar_2.png?v=1674603169",
+      "sourceUrl": "https://apresnail.com/products/apres-extend-gel-original-formula",
+      "upc": "612520649067",
+      "manufacturerSku": "APEXG01",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "UPC is from distributor listings (Beyond Polish / Sleek Nail), not apresnail.com. Extend Gel is also sold in a 15 mL bottle (APEX-B15, UPC 840298450008 per the same distributors) and in non-wipe and sensitive versions; confirm which the salon uses."
+    },
+    {
+      "key": "starpil-hard-wax-10lb",
+      "matchNames": [
+        "Starpil Hard Wax, 10lb Bag",
+        "Starpil Hard Wax 10 lb",
+        "Starpil Hard Wax"
+      ],
+      "name": "Starpil Hypoallergenic Blue Film Hard Wax Beads - 10 lb",
+      "brand": "Starpil Wax",
+      "description": "Rosin-free stripless hard wax in bead form, melted in a warmer and removed without strips. Marketed for speed waxing of large areas.",
+      "size": "10 lb",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2007/9717/files/9_b60c9dcc-db12-4ba9-b9b6-cb8b8e0620e6.png?v=1785606786",
+      "sourceUrl": "https://starpilwax.com/products/hypoallergenic-blue-hard-wax-beads",
+      "upc": null,
+      "manufacturerSku": "3010292003-B2",
+      "colorHex": null,
+      "confidence": "low",
+      "notes": "The salon's sheet does not say which Starpil formula it buys. Blue Film is assumed; Pink Film, Starsoft and Coral also come in 10 lb (SKUs 3010293003-B2, 3010267002-B2, 3010257002-B2). Starpil publishes no barcode for the 10 lb size. The Starpil PRO wholesale store also lists the original (non-hypoallergenic) Blue Film Hard Wax as 10 lb in 5 bags (SKU 100575)."
+    },
+    {
+      "key": "starpil-soft-wax-can",
+      "matchNames": [
+        "Starpil Star Soft Wax",
+        "Starpil Soft Wax",
+        "Starpil Starsoft Soft Wax"
+      ],
+      "name": "Starpil Starsoft Soft Wax for Sensitive Skin (500 ml can)",
+      "brand": "Starpil Wax",
+      "description": "Soft strip wax in a can for use with a wax warmer and removal strips, formulated for sensitive skin.",
+      "size": "500 ml can",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2007/9717/files/StarsoftSoftWax500ml.png?v=1762457884",
+      "sourceUrl": "https://starpilwax.com/products/starsoft-soft-wax",
+      "upc": "8421421107499",
+      "manufacturerSku": "3010338002",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "Matched to Starsoft from the sheet's wording 'Star Soft Wax'. Starpil's other 500 ml cans are Natural (3010306001, EAN 8421421240035) and Creamy Pink (3010311001, EAN 8421421104184)."
+    },
+    {
+      "key": "farmhouse-fresh-whipped-honey-professional",
+      "matchNames": [
+        "Farm House Fresh Whipped Honey Sea Salt",
+        "FarmHouse Fresh Whipped Honey Fine Sea Salt Body Polish",
+        "Farmhouse Fresh Whipped Honey"
+      ],
+      "name": "FarmHouse Fresh Whipped Honey Fine Sea Salt Body Polish - Professional Size",
+      "brand": "FarmHouse Fresh",
+      "description": "Fine sea salt body scrub with nourishing oils and a honey, clove and nutmeg scent, used to exfoliate in pedicure and body treatments. Backbar size for professional use.",
+      "size": "32 fl oz container (57 oz net weight)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0530/1026/8344/products/1901.jpg?v=1632336901",
+      "sourceUrl": "https://fhfpartners.com/products/whipped-honey-fine-sea-salt-body-polish-32-oz-57-oz",
+      "upc": null,
+      "manufacturerSku": "1901",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "From FarmHouse Fresh's wholesale portal (fhfpartners.com) public catalogue, which publishes no barcode for professional sizes; ordering requires a spa partner login. A 1 gallon professional size is also listed (SKU 1915, 1 gal / 213 oz). Which size the salon buys is not known."
+    },
+    {
+      "key": "farmhouse-fresh-whipped-honey-retail",
+      "matchNames": [
+        "FarmHouse Fresh Whipped Honey 12 oz",
+        "Whipped Honey (retail)"
+      ],
+      "name": "FarmHouse Fresh Whipped Honey Fine Sea Salt Body Polish",
+      "brand": "FarmHouse Fresh",
+      "description": "Retail jar of the Whipped Honey fine sea salt body scrub, sold to clients for home use.",
+      "size": "12 oz jar",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0363/0936/8968/files/Whipped-Honey-Scrub-_1_fe5f3a4b-4c9f-42e7-8723-0d6ba1b2a5d0.jpg?v=1696263645",
+      "sourceUrl": "https://farmhousefreshgoods.com/products/whipped-honey",
+      "upc": "813439013738",
+      "manufacturerSku": "13738",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "Wholesale case of 3 is SKU 13738RT on the partner portal."
+    },
+    {
+      "key": "farmhouse-fresh-honey-heel-glaze-professional",
+      "matchNames": [
+        "Farm House Fresh Honey Heel Glaze",
+        "FarmHouse Fresh Honey Heel Glaze"
+      ],
+      "name": "FarmHouse Fresh Honey Heel Glaze - Professional Size",
+      "brand": "FarmHouse Fresh",
+      "description": "Honey-based serum brushed onto heels and feet as a pedicure finishing step to seal in moisture. Backbar size for professional use.",
+      "size": "32 fl oz (33.5 oz net weight)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0530/1026/8344/files/Honey_Heel_Glaze_32oz_pumpable-WEB.jpg?v=1729180382",
+      "sourceUrl": "https://fhfpartners.com/products/honey-heel-glaze-r-32-oz",
+      "upc": null,
+      "manufacturerSku": "1913",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "From FarmHouse Fresh's wholesale portal (fhfpartners.com) public catalogue, which publishes no barcode for professional sizes; ordering requires a spa partner login. A 1 gallon professional size is also listed (SKU 1919, 1 gal / 128 oz). Which size the salon buys is not known."
+    },
+    {
+      "key": "farmhouse-fresh-honey-heel-glaze-retail",
+      "matchNames": [
+        "FarmHouse Fresh Honey Heel Glaze 3 oz",
+        "Honey Heel Glaze (retail)"
+      ],
+      "name": "FarmHouse Fresh Honey Heel Glaze",
+      "brand": "FarmHouse Fresh",
+      "description": "Retail jar of the honey-based heel and foot serum, sold with an applicator brush for home use.",
+      "size": "3 oz jar",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0363/0936/8968/files/Honey-Heel-Holiday-01.webp?v=1791401968",
+      "sourceUrl": "https://farmhousefreshgoods.com/products/honey-heel-glaze",
+      "upc": "856701001415",
+      "manufacturerSku": "1415",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "The current hero image on the retail page is a seasonal photo. Wholesale case of 3 is SKU 1415RT."
+    },
+    {
+      "key": "farmhouse-fresh-agave-nectar-oil-professional",
+      "matchNames": [
+        "Farm House Fresh Agave Nectar Oil",
+        "FarmHouse Fresh Agave Nectar Oil",
+        "FarmHouse Fresh Agave Nectar"
+      ],
+      "name": "FarmHouse Fresh Agave Nectar Ageless Body Oil - Professional Size",
+      "brand": "FarmHouse Fresh",
+      "description": "Lightweight, non-greasy body oil with an oat-milk scent, used for massage and as a finishing moisturiser in manicure and pedicure services. Backbar size for professional use.",
+      "size": "32 oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0530/1026/8344/files/Agave_Nectar_Body_Oil_32oz_pumpable-V1_1.jpg?v=1738338152",
+      "sourceUrl": "https://fhfpartners.com/products/agave-nectar-professional",
+      "upc": null,
+      "manufacturerSku": "1932",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "From FarmHouse Fresh's wholesale portal (fhfpartners.com) public catalogue, which publishes no barcode for professional sizes; ordering requires a spa partner login. A 1 gallon professional size is also listed (SKU 1933, 1 gal / 128 oz). Which size the salon buys is not known."
+    },
+    {
+      "key": "farmhouse-fresh-agave-nectar-oil-retail",
+      "matchNames": [
+        "FarmHouse Fresh Agave Nectar 4 oz",
+        "Agave Nectar (retail)"
+      ],
+      "name": "FarmHouse Fresh Agave Nectar Ageless Body Oil",
+      "brand": "FarmHouse Fresh",
+      "description": "Retail bottle of the Agave Nectar body oil, sold to clients for home use.",
+      "size": "4 oz bottle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0363/0936/8968/files/Agave_Nectar_Oil_1.jpg?v=1783440972",
+      "sourceUrl": "https://farmhousefreshgoods.com/products/agave-nectar",
+      "upc": "813439010232",
+      "manufacturerSku": "0232",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "Wholesale case of 3 is SKU 0232RT."
+    },
+    {
+      "key": "divina-cuticle-softener-gallon",
+      "matchNames": [
+        "Divina Cuticle Softener",
+        "cuticle softener"
+      ],
+      "name": "Divina Cuticle Softener",
+      "brand": "Divina",
+      "description": "Cuticle softening liquid applied before cuticles are pushed back or trimmed.",
+      "size": "1 gallon (per the salon's sheet; not confirmed from a source)",
+      "imageUrl": null,
+      "sourceUrl": null,
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "low",
+      "notes": "No manufacturer or distributor page for a Divina-brand cuticle softener could be found, so the description is generic and image, source, UPC and SKU are null. Ask the nail supply store for the product sheet or photograph the label."
+    },
+    {
+      "key": "cnc-100-plus-acetone",
+      "matchNames": [
+        "CnC Acetone",
+        "C&C 100% Plus A.",
+        "C&C 100% Pure Acetone",
+        "Acetone"
+      ],
+      "name": "CnC 100% Plus Acetone",
+      "brand": "CnC Nails",
+      "description": "Pure acetone for removing gel polish, acrylic, dip powder and nail glue.",
+      "size": "1 gallon (per the salon's sheet; size is not stated on the manufacturer page)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0964/5509/8685/files/Untitleddesign_3.png?v=1761839545",
+      "sourceUrl": "https://cncgel.com/products/cnc-100-plus-acetone",
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "CnC does not sell this online ('cannot ship'); it is sold through local nail supply stores only. No SKU or barcode is published."
+    },
+    {
+      "key": "infa-lab-liquid-styptic",
+      "matchNames": [
+        "INFA Liquid Styptic Skin Protector (Green)",
+        "INFA Liquid Styptic",
+        "2A - Liquid Styptic",
+        "Infalab Liquid Styptic"
+      ],
+      "name": "Infa-Lab Magic Touch Liquid Styptic Skin Protector",
+      "brand": "Infa-Lab",
+      "description": "Liquid styptic in a dropper bottle that stops bleeding from minor nicks and cuts during manicure and pedicure services.",
+      "size": "0.5 fl oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0358/0369/3193/products/INFALAB-LiquidStypticSkinProtector.50FLOZ.jpg?v=1653431321",
+      "sourceUrl": "https://skylinebeautysupply.com/products/infalab-liquid-styptic-skin-protector-50-fl-oz",
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "No reliable single-bottle barcode was found; distributor listings either omit it or show codes for multi-packs."
+    },
+    {
+      "key": "arina-quick-dry-oil",
+      "matchNames": [
+        "Arina Quick Dry Oil",
+        "CND + Arina Monomer",
+        "Acrylic Liquid (Arina or CND )"
+      ],
+      "name": "Arina Quick Dry Oil",
+      "brand": "Arina",
+      "description": "Quick-dry oil applied over wet nail polish to speed drying and condition cuticles. The sheet also lists an Arina acrylic liquid (monomer).",
+      "size": null,
+      "imageUrl": null,
+      "sourceUrl": null,
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "low",
+      "notes": "No manufacturer or distributor page for an Arina-brand quick dry oil or monomer could be found, so the description is generic and all other fields are null. Ask the nail supply store for the product sheet or photograph the label."
+    },
+    {
+      "key": "mia-secret-blooming-gel",
+      "matchNames": [
+        "Mia Secret Blooming Gel Spreading Effects",
+        "Mia Secret Blooming Gel"
+      ],
+      "name": "Mia Secret Blooming Gel",
+      "brand": "Mia Secret",
+      "description": "Clear specialty gel that makes gel colours spread and diffuse on the nail, used for floral, marble and watercolour nail art.",
+      "size": "0.5 fl oz",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0549/8142/7290/files/BMG-38_update.jpg?v=1788382903",
+      "sourceUrl": "https://miasecretstore.com/products/blooming-gel",
+      "upc": "842342105919",
+      "manufacturerSku": "BMG-38",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "Size is not stated in Mia Secret's product data; 0.5 fl oz is taken from the UPCitemdb record for this UPC."
+    },
+    {
+      "key": "nomi-spa-soak-tablets",
+      "matchNames": [
+        "Nomi Spa Soak Tablets",
+        "Nomi Spa Soak",
+        "Spa soak tablets"
+      ],
+      "name": "Nomi Spa Soak Tablets (10,000 pcs)",
+      "brand": "Nomi",
+      "description": "Small pedicure soak tablets dropped into the foot bath to soften skin and cleanse feet before a pedicure.",
+      "size": "Tub of 10,000 tablets",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0007/9744/2107/files/Untitleddesign_43_cb7cea8b-92ab-45f7-ab73-3529e9ac1ea0.png?v=1690471705",
+      "sourceUrl": "https://nailcompany.com/products/nomi-spa-soak-tablets-10000pcs",
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "low",
+      "notes": "No valid barcode found. One Canadian distributor (jessicanailsupply.ca) lists '757547010009' as both SKU and barcode for the mint version, but that number fails GTIN check-digit validation, so upc is null. Brand and maker details beyond the distributor listing are not confirmed."
+    },
+    {
+      "key": "opi-nail-lacquer-funny-bunny",
+      "matchNames": [
+        "Funny Bunny",
+        "OPI Funny Bunny",
+        "OPI Nail Lacquer Funny Bunny",
+        "H22",
+        "NL H22"
+      ],
+      "name": "OPI Nail Lacquer - Funny Bunny",
+      "brand": "OPI",
+      "description": "Sheer, layerable soft white nail lacquer; one of OPI's classic neutral shades.",
+      "size": "15 mL (0.5 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/funny-bunny-nlh22-nail-lacquer-22001014106_9321a095-0d6f-4122-90bd-8972c4f49c31.jpg?v=1668638934",
+      "sourceUrl": "https://www.opi.com/products/nail-lacquer-funny-bunny",
+      "upc": "094100001913",
+      "manufacturerSku": "NLH22",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "GTIN from opi.com (published without the leading zero) and matched by distributors; bottles also carry the short UPC-E form 09419113. No source states a hex colour for this shade, so colorHex is null."
+    },
+    {
+      "key": "opi-nail-lacquer-alpine-snow",
+      "matchNames": [
+        "Alpine Snow",
+        "OPI Alpine Snow",
+        "OPI Nail Lacquer Alpine Snow",
+        "L00",
+        "NL L00"
+      ],
+      "name": "OPI Nail Lacquer - Alpine Snow",
+      "brand": "OPI",
+      "description": "Opaque crisp white creme nail lacquer, commonly used for French tips and bright white manicures.",
+      "size": "15 mL (0.5 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/alpine-snow-nll00-nail-lacquer-22001014060_8f0b3847-a92f-4bc3-be0d-2e8c8646d42f.jpg?v=1668553386",
+      "sourceUrl": "https://www.opi.com/products/nail-lacquer-alpine-snow",
+      "upc": "094100000398",
+      "manufacturerSku": "NLL00",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "GTIN from opi.com (published without the leading zero) and matched by distributors; bottles also carry the short UPC-E form 09403918. No source states a hex colour for this shade, so colorHex is null."
+    },
+    {
+      "key": "opi-nail-lacquer-bubble-bath",
+      "matchNames": [
+        "Bubble Bath",
+        "OPI Bubble Bath",
+        "OPI Nail Lacquer Bubble Bath",
+        "S86",
+        "NL S86"
+      ],
+      "name": "OPI Nail Lacquer - Bubble Bath",
+      "brand": "OPI",
+      "description": "Sheer light nude-pink nail lacquer; one of OPI's best-known neutral shades.",
+      "size": "15 mL (0.5 fl oz)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0649/4879/7673/products/bubble-bath-nls86-nail-lacquer-22001014085_fcdd1b92-e288-4052-843e-c77cd3b88188.jpg?v=1668559271",
+      "sourceUrl": "https://www.opi.com/products/nail-lacquer-bubble-bath",
+      "upc": "094100002125",
+      "manufacturerSku": "NLS86",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "GTIN from opi.com (published without the leading zero) and matched by distributors; bottles also carry the short UPC-E form 09421215. No source states a hex colour for this shade, so colorHex is null."
+    },
+    {
+      "key": "dnd-448-snow-flake",
+      "matchNames": [
+        "DND 448 - Snow Flakes (White)",
+        "DND 448",
+        "DND 448 Snow Flake"
+      ],
+      "name": "DND Gel & Lacquer Duo #448 Snow Flake",
+      "brand": "DND (Daisy Nail Design)",
+      "description": "Matching soak-off gel polish and nail lacquer pair in a creamy opaque white. DND advises a longer cure for high-opacity whites.",
+      "size": "Duo: 15 ml gel polish + matching lacquer",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0695/1583/7721/files/DND-448-DOT.webp?v=1756942768",
+      "sourceUrl": "https://dndgel.com/products/snow-flake-448",
+      "upc": "696294436528",
+      "manufacturerSku": "DND-D-448-COMBO",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "Image is DND's colour swatch dot, not a bottle photo. SKU is dndgel.com's store SKU for the duo. UPC is from one distributor (Skyline Beauty Supply); dndgel.com publishes none. No source states a hex colour."
+    },
+    {
+      "key": "dnd-601-ballet-pink",
+      "matchNames": [
+        "DND601 -Ballet Pink",
+        "DND 601",
+        "DND 601 Ballet Pink"
+      ],
+      "name": "DND Gel & Lacquer Duo #601 Ballet Pink",
+      "brand": "DND (Daisy Nail Design)",
+      "description": "Matching soak-off gel polish and nail lacquer pair in a soft nude baby pink.",
+      "size": "Duo: 15 ml gel polish + matching lacquer",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0695/1583/7721/files/DND-601-DOT.webp?v=1760393825",
+      "sourceUrl": "https://dndgel.com/products/ballet-pink-601",
+      "upc": null,
+      "manufacturerSku": "DND-D-601-COMBO",
+      "colorHex": null,
+      "confidence": "medium",
+      "notes": "Image is DND's colour swatch dot, not a bottle photo. SKU is dndgel.com's store SKU for the duo. No barcode is published by DND or the distributors checked. No source states a hex colour. Size is taken from DND's listing for #448."
+    },
+    {
+      "key": "dazzle-dry-white-lightning",
+      "matchNames": [
+        "White Lightning",
+        "Dazzle Dry White Lightning"
+      ],
+      "name": "Dazzle Dry Nail Lacquer - White Lightning",
+      "brand": "Dazzle Dry",
+      "description": "Stark opaque white nail lacquer for the Dazzle Dry four-step system (step 3, colour).",
+      "size": "0.5 oz (Full)",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2657/6552/files/001_whitelightning-fullsize-_Full.png?v=1749237681",
+      "sourceUrl": "https://dazzledry.com/products/white-lightning-1",
+      "upc": "666134012663",
+      "manufacturerSku": "18DDCL008",
+      "colorHex": null,
+      "confidence": "high",
+      "notes": "A 0.17 oz mini (21DDMN708, UPC 666134020439) is also sold. No source states a hex colour."
+    },
+    {
+      "key": "chisel-solid-65",
+      "matchNames": [
+        "Chisel SOLID 65",
+        "Chisel Solid 065"
+      ],
+      "name": "Chisel Acrylic & Dipping Powder 2 oz - Solid 65",
+      "brand": "Chisel Nail Art",
+      "description": "Two-in-one coloured powder from Chisel's Solid collection that can be used for dip or acrylic services.",
+      "size": "2 oz jar",
+      "imageUrl": null,
+      "sourceUrl": "https://chiselnailart.com/products/chisel-acrylic-dipping-2oz-solid-065",
+      "upc": null,
+      "manufacturerSku": null,
+      "colorHex": null,
+      "confidence": "low",
+      "notes": "chiselnailart.com is inconsistent for this shade: the page headed 'Solid 065' has the browser title 'Solid 64' and an image file named Solid_64 (an off-white jar), while the page headed 'Solid 066' has the title 'Solid 65' and an image file named Solid_65 (a pale green jar: https://cdn.shopify.com/s/files/1/0724/4693/5100/files/Chisel_Solid_65_8233b35b-9f8b-45be-bccb-dc7c2d1c0c44.png). The jar labels in the photos show no number, so the correct image could not be determined and imageUrl is null. No SKU or barcode is published. Check a jar in the salon."
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Meraki/Introduction" />
+
+# Meraki Inventory design system
+
+The component library and screen prototypes for the Meraki Spa inventory app.
+
+It is built on [Untitled UI React](https://github.com/untitleduico/react) (MIT): React 19, Tailwind CSS v4 and React Aria. The Untitled UI components are **vendored**, meaning they are copied into this repo and we own them.
+
+## How the sidebar is organised
+
+| Section             | What lives there                                                             | Folder                    |
+| ------------------- | ---------------------------------------------------------------------------- | ------------------------- |
+| **Meraki**          | Our own components: app shell, stat cards, status badges, scanner, steppers  | `components/meraki/`      |
+| **Screens**         | Full-page prototypes, each with Desktop and Mobile stories                   | `screens/`                |
+| **Base components** | Untitled UI building blocks: buttons, inputs, badges, selects                | `components/base/`        |
+| **Application**     | Untitled UI app patterns: tables, charts, navigation, date pickers           | `components/application/` |
+| **Foundations**     | Icons, logos, featured icons                                                 | `components/foundations/` |
+
+Use the viewport button in the toolbar to switch between Mobile (375), Tablet and Desktop on any story.
+
+## Brand
+
+The theme follows merakispainc.com (tokens mirrored from the website's `tokens.css`).
+
+- **Type**: Figtree for everything. Instrument Serif italic is the accent: put one word of a page title in `<em>`.
+- **Primary buttons**: aqua `#65c5c3` (`brand-400`) with ink `#17262e` text, lighter aqua on hover. Aqua is a fill only; it does not pass contrast as text on white.
+- **Links, focus rings, checkboxes, toggles**: deep teal `#245b59` (`brand-700`).
+- **Neutrals**: cool slate, not pure gray. Page background is mist `#f1f7f8`.
+- Use **semantic tokens** (`text-primary`, `bg-secondary`, `ring-secondary`, `text-brand-secondary`) instead of raw colours. They swap in dark mode.
+
+## What is real and what is sample
+
+Screens read from `data/inventory.ts`.
+
+- **Real**, imported from Meraki's 2026 workbooks: the catalogue, shelves, vendors, par levels, and every purchase order with its received dates and quantities. Flags marked "From your sheets" are computed from this.
+- **Sample**, generated: unit costs, staff names, counts, most on-hand numbers, and all Newburyport stock.
+
+Forecasts and flags are produced by the real engine in `engine/`, so they update as soon as real counts and costs replace the sample layer.
+
+## Working on a screen
+
+1. Screens live in `screens/<name>/<name>-screen.tsx` with a `<name>-screen.story.tsx` beside them.
+2. Wrap the screen in `AppShell` and build it from `components/meraki/*` plus Untitled UI components.
+3. Keep `SampleDataNote` on any screen that shows sample values.
+4. The Next.js app (`apps/web`) imports the same screen with the same `@/screens/...` path.
+
+## Conventions (from Untitled UI)
+
+- Name files in kebab-case (`stat-card.tsx`).
+- Import React Aria components with an `Aria` prefix: `import { Button as AriaButton } from "react-aria-components"`.
+- Name stories `*.story.tsx` and keep them next to their component.

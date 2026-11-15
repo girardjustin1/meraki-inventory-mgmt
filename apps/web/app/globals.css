@@ -1,0 +1,5 @@
+@import "../../../packages/ui/styles/globals.css";
+
+/* Tailwind only scans this app by default — also scan the shared design system. */
+@source "../../../packages/ui/components";
+@source "../../../packages/ui/screens";

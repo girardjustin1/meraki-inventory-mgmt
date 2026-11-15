@@ -1,0 +1,27 @@
+{
+  "name": "meraki-inventory-mgmt",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "storybook": "npm run storybook -w @meraki/ui",
+    "build-storybook": "npm run build-storybook -w @meraki/ui",
+    "dev": "npm run dev -w @meraki/inventory-web",
+    "build": "npm run build -w @meraki/inventory-web",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "import:seed": ".venv/bin/python tools/import/import_spreadsheets.py",
+    "test:engine": "npm run test:engine -w @meraki/ui",
+    "test:db": "node tools/db/check-schema.mjs",
+    "seed:sql": "tsx tools/seed/build-seed-sql.ts"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "tsx": "^4.23.15"
+  }
+}
