@@ -15,4 +15,8 @@
 - Deep links: screens mirror view state into the URL with `useUrlSync` (`packages/ui/utils/url-sync.tsx`) and take matching `initial…` props; each page in `apps/web/app` reads the query string through `lib/view-params.ts`. Add both sides when a screen gains a tab or filter.
 - Who is using the app: `viewer()` on the server (`apps/web/lib/view-params.ts`) and `useViewer()` on the client. In the prototype it is the "view as" cookie; with Clerk connected it becomes the signed-in profile. Pages pass `user={await viewer()}` to screens that take a user.
 - Notes use mention tokens (`@[user-id]`); see `packages/ui/engine/mentions.ts`. Order sending text (email drafts, pick lists, cart links) comes from `packages/ui/engine/order-send.ts`.
+- Lists share one pattern: `DataTableToolbar` (views, search, filters, sort, columns) above a one-line table from `list-table.tsx` (`ListTable`, `ListCards`, `useListSelection`), with `BulkActionBar` when rows are selected. A bulk action that does not apply to some rows runs for the rest and says what was skipped and why. Stock (`screens/stock/`) is the reference.
+- Detail pages share: `SaveBar` (the only save control on a page), `DetailRail`, `FieldChips`, and `ProductPicker` for adding items (pass `lockVendor` on a purchase order: an order goes to one vendor).
+- Display names for codes (polish lines, order channels) live in `packages/ui/data/labels.ts`. Do not re-declare them in a screen.
+- `useUrlSync`: pass `undefined` or `null` to remove a parameter. Storybook's dev server can miss Tailwind classes that are new to the project until `styles/globals.css` is re-read (`touch` it).
 - `tools/dev/cdp.mjs` drives headless Chrome with real key presses and clicks; use it to check interactive behaviour.
