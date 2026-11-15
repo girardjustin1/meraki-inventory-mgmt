@@ -45,10 +45,12 @@ export interface ListPaginationProps {
 }
 
 /**
- * The foot of a list, on one line: how many rows to show, which rows are showing, and a step back
- * or forward.
+ * The foot of a list: how many rows to show, which rows are showing, and a step back or forward.
  *
  *   Items per page  [50 v]    <  51-100 of 333  >
+ *
+ * One line on desktop, grouped at the right. On a phone the two parts stack, each across the full
+ * width, so the arrows sit at the edges where thumbs reach.
  *
  * The screen keeps `page` and `pageSize` in the URL (`?page=3&per=25`), so every page of a list has
  * an address that can be bookmarked or sent to someone. Renders nothing when the list fits within
@@ -65,16 +67,14 @@ export const ListPagination = ({ page, pageSize, total, noun = "rows", onPageCha
     };
 
     return (
-        <div className={cx("flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm sm:gap-x-6 lg:justify-end", className)}>
-            <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-tertiary">
-                {/* A phone has room for the short form; the select carries the full name for screen readers. */}
-                <span className="max-sm:hidden">Items per page</span>
-                <span aria-hidden="true" className="sm:hidden">
-                    Per page
-                </span>
+        <div className={cx("flex flex-col gap-1 text-sm lg:flex-row lg:items-center lg:justify-end lg:gap-6", className)}>
+            <label className="flex shrink-0 items-center justify-between gap-2 whitespace-nowrap text-tertiary lg:justify-start">
+                Items per page
                 <NativeSelect
                     aria-label={`${noun} per page`}
                     size="sm"
+                    // As wide as its number, not the whole row.
+                    className="w-auto"
                     value={String(pageSize)}
                     onChange={(event) => {
                         const next = toPageSize(event.currentTarget.value);
@@ -87,7 +87,7 @@ export const ListPagination = ({ page, pageSize, total, noun = "rows", onPageCha
                 />
             </label>
 
-            <nav aria-label={`Pages of ${noun}`} className="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
+            <nav aria-label={`Pages of ${noun}`} className="flex shrink-0 items-center justify-between gap-1 lg:justify-start">
                 <ButtonUtility
                     icon={ChevronLeft}
                     color="tertiary"
