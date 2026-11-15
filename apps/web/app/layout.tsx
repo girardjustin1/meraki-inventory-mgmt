@@ -35,7 +35,7 @@ export default function RootLayout({
       <body className="bg-primary antialiased">
         <Providers>
           {/* The "view as" switch exists only while sign-in is not connected. */}
-          <ClientProviders canSwitchViewer={!isConfigured.clerk}>
+          <ClientProviders canSwitchViewer={!isConfigured.clerk} fallback={<PageLoading />}>
             {/* Pages read the query string in the browser (lib/use-view.ts), which needs a Suspense boundary. */}
             <Suspense fallback={<PageLoading />}>{children}</Suspense>
           </ClientProviders>

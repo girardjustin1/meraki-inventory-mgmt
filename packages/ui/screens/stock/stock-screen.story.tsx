@@ -29,6 +29,12 @@ export const Polish: Story = { args: { initialTab: "polish" } };
 /** The wall filtered to one finish: gel bottles only, each count editable in place. */
 export const PolishGel: Story = { args: { initialTab: "polish", initialFinish: "gel" } };
 
+/** Page 3 of the OPI wall at 25 colours a page: the address is /stock?tab=polish&page=3&per=25. */
+export const PolishPageThree: Story = { args: { initialTab: "polish", initialPage: 3, initialPageSize: 25 } };
+
+/** Ten supplies a page, on the second page. */
+export const TenPerPage: Story = { args: { initialPage: 2, initialPageSize: 10 } };
+
 /** Gel-X tips as a shape and length by size matrix, with gaps marked. */
 export const Tips: Story = { args: { initialTab: "tips" } };
 

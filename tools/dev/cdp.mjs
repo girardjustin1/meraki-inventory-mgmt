@@ -6,6 +6,7 @@
 //
 // Steps: {"wait":500} {"key":"k","meta":true} {"key":"ArrowDown"} {"text":"acetone"} {"click":"css selector"}
 //        {"eval":"document.title"} {"shot":"/abs/path.png"} {"waitFor":"css selector"}
+//        {"errors":true} prints console errors, warnings and uncaught exceptions seen so far (hydration errors included)
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -46,11 +47,19 @@ const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((r) => (ws.onopen = r));
 let seq = 0;
 const pending = new Map();
+// Console errors, warnings and uncaught exceptions since the page started loading ({"errors":true} prints them).
+const problems = [];
+const argText = (arg) => arg.value ?? arg.description ?? arg.unserializableValue ?? arg.type;
 ws.onmessage = (m) => {
     const msg = JSON.parse(m.data);
     if (msg.id && pending.has(msg.id)) {
         pending.get(msg.id)(msg);
         pending.delete(msg.id);
+    } else if (msg.method === "Runtime.consoleAPICalled" && (msg.params.type === "error" || msg.params.type === "warning")) {
+        problems.push(`${msg.params.type}: ${msg.params.args.map(argText).join(" ").slice(0, 600)}`);
+    } else if (msg.method === "Runtime.exceptionThrown") {
+        const detail = msg.params.exceptionDetails;
+        problems.push(`exception: ${(detail.exception?.description ?? detail.text ?? "").slice(0, 600)}`);
     }
 };
 const send = (method, params = {}) =>
@@ -101,6 +110,7 @@ for (const step of steps) {
             await sleep(300);
         }
     } else if (step.eval) console.log(JSON.stringify(await evaluate(step.eval)));
+    else if (step.errors) console.log(JSON.stringify(problems.length ? problems : "no console errors or warnings"));
     else if (step.shot) {
         const r = await send("Page.captureScreenshot", { format: "png" });
         writeFileSync(step.shot, Buffer.from(r.result.data, "base64"));

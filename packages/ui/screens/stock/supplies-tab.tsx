@@ -28,6 +28,8 @@ import { BulkQuantityEditor } from "@/components/meraki/bulk-quantity-editor";
 import type { ActiveFilters, ToolbarColumn, ToolbarFilter } from "@/components/meraki/data-table-toolbar";
 import { DataTableToolbar, passesFilters } from "@/components/meraki/data-table-toolbar";
 import { ItemThumb } from "@/components/meraki/item-thumb";
+import type { PageSize } from "@/components/meraki/list-pagination";
+import { ListPagination, paginate } from "@/components/meraki/list-pagination";
 import type { QuantityChange } from "@/components/meraki/quantity-edit-popover";
 import { QuantityEditPopover } from "@/components/meraki/quantity-edit-popover";
 import { unitWord } from "@/components/meraki/quantity-stepper";
@@ -46,15 +48,13 @@ import { useUrlSync } from "@/utils/url-sync";
 import type { ParChoice } from "./stock-dialogs";
 import { AddToOrderDialog, ChangeVendorDialog, CountTheseDialog, MoveDialog, SetParDialog } from "./stock-dialogs";
 import type { Notice } from "./stock-shared";
-import { NothingHere, ShowMore, norm, plural } from "./stock-shared";
+import { NothingHere, norm, plural } from "./stock-shared";
 
 export type StatusFilter = "all" | "out" | "low" | "over" | "unknown";
 type ViewId = "all" | "low" | "out" | "reorder" | "no-par";
 type SortId = "urgent" | "shelf" | "name" | "on-hand" | "cover" | "counted";
 type ColumnId = "status" | "incoming" | "par" | "cover" | "area" | "vendor" | "category" | "reorder-point" | "suggested" | "counted" | "value" | "abc";
 type DialogId = "order" | "count" | "edit" | "par" | "vendor" | "move";
-
-const SUPPLY_PAGE = 60;
 
 const STATUS_RANK: Record<StockStatus, number> = { out: 0, low: 1, ok: 2, over: 3, unknown: 4, paused: 5 };
 
@@ -306,6 +306,11 @@ export interface SuppliesTabProps {
     initialStatus: StatusFilter;
     initialReorderOnly: boolean;
     initialQuery: string;
+    /** Page to open on, counting from 1 (deep link `?page=`). */
+    initialPage: number;
+    /** Rows per page. Shared with the other stock tabs, so the screen owns it. */
+    pageSize: PageSize;
+    onPageSizeChange: (size: PageSize) => void;
     initialSelected?: string[];
     editingItemId?: string;
     initialBulkEditing?: boolean;
@@ -319,6 +324,9 @@ export const SuppliesTab = ({
     initialStatus,
     initialReorderOnly,
     initialQuery,
+    initialPage,
+    pageSize,
+    onPageSizeChange,
     initialSelected = [],
     editingItemId,
     initialBulkEditing,
@@ -351,7 +359,8 @@ export const SuppliesTab = ({
     const [query, setQuery] = useState(initialQuery);
     const [sort, setSort] = useState<SortId>("urgent");
     const [shownColumns, setShownColumns] = useState<string[]>(COLUMNS.filter((c) => c.onByDefault).map((c) => c.id));
-    const [visible, setVisible] = useState(SUPPLY_PAGE);
+    const [pageNumber, setPageNumber] = useState(initialPage);
+    const listTop = useRef<HTMLDivElement>(null);
     const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelected));
     const [selectMode, setSelectMode] = useState(initialSelected.length > 0);
     const [dialog, setDialog] = useState<DialogId | null>(initialBulkEditing ? "edit" : null);
@@ -473,14 +482,17 @@ export const SuppliesTab = ({
         return out.sort(compare[sort]).flatMap((r) => rowById.get(r.item.id) ?? []);
     }, [listRows, rowById, query, view, filters, sort, areas]);
 
-    const page = filtered.slice(0, visible);
+    const paged = paginate(filtered, pageNumber, pageSize);
+    const page = paged.rows;
+    // Every page of the list has its own address: /stock?page=3. Page 1 is the plain address.
+    useUrlSync({ page: paged.page > 1 ? paged.page : null });
     const pageIds = page.map((r) => r.item.id);
     const narrowed = filtered.length !== rows.length;
 
     // Changing what is listed starts paging again and drops the selection, so actions never hit rows that are out of sight.
     const relist = () => {
         setListedWith(overrides);
-        setVisible(SUPPLY_PAGE);
+        setPageNumber(1);
         if (selected.size) setSelected(new Set());
         anchor.current = null;
     };
@@ -799,7 +811,7 @@ export const SuppliesTab = ({
     const summaryText = narrowed ? `${filtered.length.toLocaleString("en-US")} of ${plural(rows.length, "supply", "supplies")}` : undefined;
 
     return (
-        <div className={cx("flex flex-col gap-3", !isDesktop && someSelected && "pb-28")}>
+        <div ref={listTop} className={cx("flex scroll-mt-20 flex-col gap-3", !isDesktop && someSelected && "pb-28")}>
             <DataTableToolbar
                 label={`supplies at ${locationName(location)}`}
                 views={views}
@@ -1060,16 +1072,18 @@ export const SuppliesTab = ({
                 </Card>
             )}
 
-            {filtered.length > 0 && (
-                <div className="flex flex-col items-center gap-2">
-                    {filtered.length > page.length && isDesktop && (
-                        <p className="text-sm text-tertiary">
-                            Showing {page.length} of {filtered.length.toLocaleString("en-US")}
-                        </p>
-                    )}
-                    <ShowMore step={SUPPLY_PAGE} remaining={filtered.length - page.length} onPress={() => setVisible((v) => v + SUPPLY_PAGE)} />
-                </div>
-            )}
+            <ListPagination
+                page={paged.page}
+                pageSize={pageSize}
+                total={filtered.length}
+                noun="supplies"
+                onPageChange={setPageNumber}
+                onPageSizeChange={(size) => {
+                    onPageSizeChange(size);
+                    setPageNumber(1);
+                }}
+                scrollTo={listTop}
+            />
 
             {!isDesktop && (
                 <BulkActionBar

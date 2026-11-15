@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ShoppingCart01 } from "@untitledui/icons";
 import { Link as AriaLink } from "react-aria-components";
 import { Button } from "@/components/base/buttons/button";
@@ -9,6 +9,8 @@ import { Card, ROUTES } from "@/components/meraki/app-shell";
 import type { ActiveFilters, ToolbarFilter } from "@/components/meraki/data-table-toolbar";
 import { DataTableToolbar } from "@/components/meraki/data-table-toolbar";
 import { ItemThumb } from "@/components/meraki/item-thumb";
+import type { PageSize } from "@/components/meraki/list-pagination";
+import { ListPagination, paginate } from "@/components/meraki/list-pagination";
 import { QuantityEditPopover } from "@/components/meraki/quantity-edit-popover";
 import type { StockRow } from "@/data/inventory";
 import { locationName, stockRows } from "@/data/inventory";
@@ -16,9 +18,7 @@ import type { LocationId, PolishLine, StockVariant, User, VariantId } from "@/da
 import { can } from "@/engine/permissions";
 import { cx } from "@/utils/cx";
 import { useUrlSync } from "@/utils/url-sync";
-import { NothingHere, ShowMore, norm, plural } from "./stock-shared";
-
-const POLISH_PAGE = 80;
+import { NothingHere, norm, plural } from "./stock-shared";
 
 const LINES: { id: PolishLine; label: string }[] = [
     { id: "opi", label: "OPI" },
@@ -54,10 +54,25 @@ interface PolishTabProps {
     initialLine: PolishLine | "all";
     initialFinish?: VariantId;
     initialQuery: string;
+    /** Page to open on, counting from 1 (deep link `?page=`). */
+    initialPage: number;
+    /** Colours per page. Shared with the other stock tabs, so the screen owns it. */
+    pageSize: PageSize;
+    onPageSizeChange: (size: PageSize) => void;
 }
 
 /** The polish wall as swatches. Line and colour family are filters in the same bar the supplies use. */
-export const PolishTab = ({ location, user, onViewLynnfield, initialLine, initialFinish, initialQuery }: PolishTabProps) => {
+export const PolishTab = ({
+    location,
+    user,
+    onViewLynnfield,
+    initialLine,
+    initialFinish,
+    initialQuery,
+    initialPage,
+    pageSize,
+    onPageSizeChange,
+}: PolishTabProps) => {
     const canAdjust = can(user, "stock.adjust", location);
     const baseRows = useMemo(() => stockRows(location, "polish"), [location]);
     // Backstock changed on this screen, keyed by colour or by "colour:finish". On hand is the open bottles plus the spares.
@@ -96,12 +111,14 @@ export const PolishTab = ({ location, user, onViewLynnfield, initialLine, initia
     });
     const [view, setView] = useState<Availability>("all");
     const [query, setQuery] = useState(initialQuery);
-    const [visible, setVisible] = useState(POLISH_PAGE);
+    const [pageNumber, setPageNumber] = useState(initialPage);
+    const listTop = useRef<HTMLDivElement>(null);
 
     const line = (filters.line?.[0] ?? "all") as PolishLine | "all";
     const families = filters.family ?? [];
     const finish = filters.finish?.[0] as VariantId | undefined;
-    useUrlSync({ line: line === "opi" ? null : line, finish: finish ?? null, q: query });
+    // Every page of the wall has its own address: /stock?tab=polish&page=3. Page 1 is the plain address.
+    useUrlSync({ line: line === "opi" ? null : line, finish: finish ?? null, q: query, page: pageNumber > 1 ? pageNumber : null });
 
     const lineRows = useMemo(() => (line === "all" ? rows : rows.filter((r) => r.item.line === line)), [rows, line]);
     // Filtered to a finish, the wall holds only the colours stocked in that finish.
@@ -155,8 +172,9 @@ export const PolishTab = ({ location, user, onViewLynnfield, initialLine, initia
     );
     const elsewhere = q && line !== "all" ? rows.filter((r) => r.item.line !== line && matchesQuery(r)).length : 0;
 
-    const page = filtered.slice(0, visible);
-    const reset = () => setVisible(POLISH_PAGE);
+    const paged = paginate(filtered, pageNumber, pageSize);
+    const page = paged.rows;
+    const reset = () => setPageNumber(1);
 
     const views = [
         { id: "all", label: "All", count: inLine.length },
@@ -166,7 +184,7 @@ export const PolishTab = ({ location, user, onViewLynnfield, initialLine, initia
     ];
 
     return (
-        <div className="flex flex-col gap-3">
+        <div ref={listTop} className="flex scroll-mt-20 flex-col gap-3">
             <DataTableToolbar
                 label="polish colours"
                 views={views}
@@ -190,7 +208,11 @@ export const PolishTab = ({ location, user, onViewLynnfield, initialLine, initia
                     setFilters(lineChanged ? Object.fromEntries(Object.entries(next).filter(([id]) => id !== "family" && id !== "finish")) : next);
                     reset();
                 }}
-                summary={`${page.length.toLocaleString("en-US")} of ${plural(filtered.length, "colour")}`}
+                summary={
+                    filtered.length > page.length
+                        ? `${paged.from.toLocaleString("en-US")}–${paged.to.toLocaleString("en-US")} of ${plural(filtered.length, "colour")}`
+                        : plural(filtered.length, "colour")
+                }
             />
 
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-tertiary">
@@ -325,7 +347,18 @@ export const PolishTab = ({ location, user, onViewLynnfield, initialLine, initia
                 </Card>
             )}
 
-            <ShowMore step={POLISH_PAGE} remaining={filtered.length - page.length} onPress={() => setVisible((v) => v + POLISH_PAGE)} />
+            <ListPagination
+                page={paged.page}
+                pageSize={pageSize}
+                total={filtered.length}
+                noun="colours"
+                onPageChange={setPageNumber}
+                onPageSizeChange={(size) => {
+                    onPageSizeChange(size);
+                    setPageNumber(1);
+                }}
+                scrollTo={listTop}
+            />
         </div>
     );
 };

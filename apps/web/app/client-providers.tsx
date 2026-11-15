@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { RouterProvider } from "react-aria-components";
@@ -23,8 +23,22 @@ import { DEFAULT_VIEWER_ID } from "~/lib/view-params";
  * link (open in a new tab, copy the address, show it on hover) the address is corrected as soon as
  * the pointer or the keyboard reaches the link.
  */
-export function ClientProviders({ children, canSwitchViewer }: { children: ReactNode; canSwitchViewer: boolean }) {
+const never = () => () => {};
+/** False on the server and while the server's HTML is being picked up; true from then on. */
+const useInBrowser = () =>
+    useSyncExternalStore(
+        never,
+        () => true,
+        () => false,
+    );
+
+export function ClientProviders({ children, fallback, canSwitchViewer }: { children: ReactNode; fallback: ReactNode; canSwitchViewer: boolean }) {
     const router = useRouter();
+    // Screens are drawn in the browser only. What they show depends on the address bar and on what
+    // this browser remembers (the salon, the person the prototype is viewed as), none of which the
+    // server knows. Drawing them on the server first would start every screen on the defaults, and
+    // would have React compare two different pictures when the page loads.
+    const inBrowser = useInBrowser();
     const viewerId = useCookie(VIEWER_COOKIE) ?? DEFAULT_VIEWER_ID;
 
     useEffect(() => {
@@ -74,7 +88,7 @@ export function ClientProviders({ children, canSwitchViewer }: { children: React
         <UrlSyncProvider>
             <ViewerProvider viewerId={viewerId} onSwitch={canSwitchViewer ? switchViewer : undefined}>
                 <RouterProvider navigate={(href) => router.push(withoutBase(href))} useHref={withBase}>
-                    {children}
+                    {inBrowser ? children : fallback}
                 </RouterProvider>
             </ViewerProvider>
         </UrlSyncProvider>
