@@ -28,7 +28,8 @@ export const RULE_FIELD_LABEL: Record<CollectionRule["field"], string> = {
     kind: "Type",
 };
 
-const valueOf = (row: RuleSubject, field: CollectionRule["field"]): string | undefined => {
+/** What a rule on this field compares against for one item. */
+export const ruleFieldValue = (row: RuleSubject, field: CollectionRule["field"]): string | undefined => {
     switch (field) {
         case "area":
             return row.level.area;
@@ -56,7 +57,7 @@ const valueOf = (row: RuleSubject, field: CollectionRule["field"]): string | und
 const same = (a: string | undefined, b: string) => (a ?? "").trim().toLowerCase() === b.trim().toLowerCase();
 
 export const matchesRule = (row: RuleSubject, rule: CollectionRule) => {
-    const hit = same(valueOf(row, rule.field), rule.value);
+    const hit = same(ruleFieldValue(row, rule.field), rule.value);
     return rule.op === "is-not" ? !hit : hit;
 };
 

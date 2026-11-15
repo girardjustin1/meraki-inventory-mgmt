@@ -9,6 +9,7 @@ import {
     ChevronRight,
     ClipboardCheck,
     Flag01,
+    Folder,
     LineChartUp01,
     Lock01,
     LogOut01,
@@ -125,6 +126,12 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
             badge: openTasks ? { text: String(openTasks), color: "gray" } : undefined,
         },
         {
+            label: "Collections",
+            hint: "Shelves, service kits and count lists",
+            href: ROUTES.collections,
+            icon: Folder,
+        },
+        {
             needs: "stock.count",
             label: "Counts",
             hint: s.countsDue ? `${plural(s.countsDue, "count")} due in the next 3 days` : "Nothing due in the next 3 days",
@@ -193,12 +200,14 @@ export const MoreScreen = ({ location: initialLocation = "lynnfield", user = CUR
 
                 {/* Same groups as the desktop sidebar, so people find things in the same place on both. */}
                 <Group title="For you" rows={pick(work, ["Notifications", "Tasks"])} />
-                {pick(work, ["Counts"]).length > 0 && <Group title="Inventory" rows={pick(work, ["Counts"])} />}
+                <Group title="Inventory" rows={pick(work, ["Collections", "Counts"])} />
                 {pick(work, ["Receive"]).length > 0 && <Group title="Purchasing" rows={pick(work, ["Receive"])} />}
                 {[...pick(work, ["Flags"]), ...pick(insight, ["Activity"])].length > 0 && (
                     <Group title="Review" rows={[...pick(work, ["Flags"]), ...pick(insight, ["Activity"])]} />
                 )}
-                {pick(insight, ["Insights", "Reports", "Digests"]).length > 0 && <Group title="Insights" rows={pick(insight, ["Insights", "Reports", "Digests"])} />}
+                {pick(insight, ["Insights", "Reports", "Digests"]).length > 0 && (
+                    <Group title="Insights" rows={pick(insight, ["Insights", "Reports", "Digests"])} />
+                )}
                 <Group title={admin ? "Admin" : "Your team"} rows={adminRows} />
 
                 <section aria-label="Session" className="flex flex-col gap-2">
