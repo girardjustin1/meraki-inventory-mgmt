@@ -26,6 +26,7 @@ import type { NavItemDividerType, NavItemType } from "@/components/application/a
 import { SidebarNavigationSimple } from "@/components/application/app-navigation/sidebar-navigation/sidebar-simple";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Badge } from "@/components/base/badges/badges";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { Select } from "@/components/base/select/select";
 import { MerakiLogo } from "@/components/foundations/logo/meraki-logo";
 import { CURRENT_USER, ROLE_LABEL, locations, notificationsForUser, summary, tasksFor, users } from "@/data/inventory";
@@ -34,7 +35,7 @@ import { ACCESS_LABEL, can, isAdmin, visibleLocations } from "@/engine/permissio
 import { cx } from "@/utils/cx";
 import { useRememberLocation, useUrlSync } from "@/utils/url-sync";
 import { useViewer, useViewerSwitch } from "@/utils/viewer";
-import { CommandMenu, CommandMenuTrigger } from "./command-menu";
+import { CommandMenu } from "./command-menu";
 import { LocationSwitcher } from "./location-switcher";
 
 /** Every route in the app. Screens link with these so Storybook and the Next.js app stay in step. */
@@ -282,11 +283,26 @@ export const AppShell = ({ activeUrl = "/", location = "lynnfield", onLocationCh
                 <SidebarNavigationSimple
                     logo={
                         <div className="flex flex-col gap-4">
-                            <HomeLogoLink className="self-start" logoClassName="h-7" />
+                            {/* Search is one icon beside the logo. It opens the same menu as Cmd+K. */}
+                            <div className="flex items-center justify-between gap-2">
+                                <HomeLogoLink logoClassName="h-7" />
+                                <ButtonUtility
+                                    icon={SearchLg}
+                                    color="tertiary"
+                                    size="sm"
+                                    tooltip="Search (⌘K)"
+                                    aria-label="Search products, orders and pages"
+                                    aria-keyshortcuts="Meta+K Control+K"
+                                    onPress={() => setSearchOpen(true)}
+                                    className="-mr-1.5"
+                                    data-testid="sidebar-search"
+                                />
+                            </div>
                             {switcher("sm")}
                         </div>
                     }
-                    search={<CommandMenuTrigger onPress={() => setSearchOpen(true)} />}
+                    // An empty slot: without it the sidebar falls back to its built-in search field.
+                    search={<></>}
                     activeUrl={activeUrl}
                     items={buildNav(location, user) as NavItemType[]}
                     footerItems={buildFooterNav(user)}
