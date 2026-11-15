@@ -1,7 +1,9 @@
-import { FlagDetailScreen } from "@/screens/flag-detail/flag-detail-screen";
-import { viewer } from "~/lib/view-params";
+import { flags } from "@/data/inventory";
+import { staticParams } from "~/lib/base-path";
+import { View } from "./view";
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
-    return <FlagDetailScreen flagId={decodeURIComponent(id)} user={await viewer()} />;
+export const generateStaticParams = () => staticParams(() => flags.map((flag) => ({ id: flag.id })));
+
+export default function Page() {
+    return <View />;
 }

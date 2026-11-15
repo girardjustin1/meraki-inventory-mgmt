@@ -1,6 +1,9 @@
+"use client";
+
 import { users, vendors } from "@/data/inventory";
 import { OrdersScreen } from "@/screens/orders/orders-screen";
-import { type SearchParams, manyOf, oneOf, text, viewLocation, viewer } from "~/lib/view-params";
+import { useView } from "~/lib/use-view";
+import { manyOf, oneOf, text } from "~/lib/view-params";
 
 const STATUSES = ["draft", "awaiting-approval", "approved", "sent", "partially-received", "received", "cancelled"] as const;
 
@@ -8,12 +11,12 @@ const STATUSES = ["draft", "awaiting-approval", "approved", "sent", "partially-r
 const filtersOf = (picked: Record<string, string[]>) => Object.fromEntries(Object.entries(picked).filter(([, values]) => values.length > 0));
 
 /** Deep link: /orders?loc=&tab=open&q=acetone&vendor=amazon,costco-bjs&status=sent&by=<user id>&sort=expected */
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
+export default function Page() {
+    const { params, user, location } = useView();
     return (
         <OrdersScreen
-            user={await viewer()}
-            location={await viewLocation(params)}
+            user={user}
+            location={location}
             tab={oneOf(params.tab, ["action", "open", "received", "all"])}
             initialQuery={text(params.q)}
             initialFilters={filtersOf({

@@ -1,12 +1,10 @@
-import { getCountSession } from "@/data/inventory";
-import { CountReviewScreen } from "@/screens/count-review/count-review-screen";
-import { CountSessionScreen } from "@/screens/count-session/count-session-screen";
-import { viewer } from "~/lib/view-params";
+import { countSessions } from "@/data/inventory";
+import { staticParams } from "~/lib/base-path";
+import { View } from "./view";
+
+export const generateStaticParams = () => staticParams(() => countSessions.map((session) => ({ id: session.id })));
 
 /** A count opens as the counting flow until it is submitted, then as the manager's review. */
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
-    const session = getCountSession(id);
-    const inReview = session?.status === "submitted" || session?.status === "approved";
-    return inReview ? <CountReviewScreen sessionId={id} user={await viewer()} /> : <CountSessionScreen sessionId={id} />;
+export default function Page() {
+    return <View />;
 }

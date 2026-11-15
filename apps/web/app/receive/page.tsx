@@ -1,8 +1,11 @@
+"use client";
+
 import { ReceiveScreen } from "@/screens/receive/receive-screen";
-import { type SearchParams, text, viewLocation, viewer } from "~/lib/view-params";
+import { useView } from "~/lib/use-view";
+import { text } from "~/lib/view-params";
 
 /** Open orders to receive. Deep link: /receive?order=<id> opens one order. */
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
-    return <ReceiveScreen user={await viewer()} location={await viewLocation(params)} orderId={text(params.order, 160)} />;
+export default function Page() {
+    const { params, user, location } = useView();
+    return <ReceiveScreen user={user} location={location} orderId={text(params.order, 160)} />;
 }

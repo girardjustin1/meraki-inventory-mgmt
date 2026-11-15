@@ -1,13 +1,16 @@
+"use client";
+
 import { InsightsScreen } from "@/screens/insights/insights-screen";
-import { type SearchParams, oneOf, viewLocation, viewer } from "~/lib/view-params";
+import { useView } from "~/lib/use-view";
+import { oneOf } from "~/lib/view-params";
 
 /** Deep link: /insights?loc=&tab=colours */
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
+export default function Page() {
+    const { params, user, location } = useView();
     return (
         <InsightsScreen
-            location={await viewLocation(params)}
-            user={await viewer()}
+            location={location}
+            user={user}
             initialTab={oneOf(params.tab, ["overview", "products", "colours", "seasonality", "profitability", "planning"])}
         />
     );

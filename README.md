@@ -4,6 +4,8 @@ Inventory app for Meraki Spa's two locations: count stock, reorder, receive deli
 
 This is a first-pass prototype. Screens run on Meraki's real catalogue and 2026 order history, with sample values where the spreadsheets hold no data (costs, staff, counts). No live services are connected yet.
 
+**Live prototype**: https://girardjustin1.github.io/meraki-inventory-mgmt/ (Storybook at [/storybook/](https://girardjustin1.github.io/meraki-inventory-mgmt/storybook/)). It is rebuilt from `main` on every push; see [docs/github-pages.md](docs/github-pages.md).
+
 ## Start here
 
 | Read | For |
@@ -41,6 +43,7 @@ npm run test:engine     # forecast, flag and digest rules
 npm run test:db         # schema and row-level security, in an in-memory Postgres
 npm run build-storybook
 npm run build
+npm run build:pages     # the static site that GitHub Pages serves
 ```
 
 ## Layout

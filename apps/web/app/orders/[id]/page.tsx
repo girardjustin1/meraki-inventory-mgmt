@@ -1,7 +1,9 @@
-import { OrderDetailScreen } from "@/screens/order-detail/order-detail-screen";
-import { viewer } from "~/lib/view-params";
+import { purchaseOrders } from "@/data/inventory";
+import { staticParams } from "~/lib/base-path";
+import { View } from "./view";
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
-    return <OrderDetailScreen orderId={decodeURIComponent(id)} user={await viewer()} />;
+export const generateStaticParams = () => staticParams(() => purchaseOrders.map((order) => ({ id: order.id })));
+
+export default function Page() {
+    return <View />;
 }

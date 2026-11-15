@@ -1,7 +1,9 @@
-import { HomeScreen } from "@/screens/home/home-screen";
-import { type SearchParams, viewLocation, viewer } from "~/lib/view-params";
+"use client";
 
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
-    return <HomeScreen user={await viewer()} location={await viewLocation(params)} />;
+import { HomeScreen } from "@/screens/home/home-screen";
+import { useView } from "~/lib/use-view";
+
+export default function Page() {
+    const { user, location } = useView();
+    return <HomeScreen user={user} location={location} />;
 }

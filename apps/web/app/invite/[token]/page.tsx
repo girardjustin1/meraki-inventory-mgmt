@@ -1,3 +1,5 @@
+import { invites } from "@/data/inventory";
+import { staticParams } from "~/lib/base-path";
 import { InviteClient } from "./invite-client";
 
 /**
@@ -8,7 +10,8 @@ import { InviteClient } from "./invite-client";
 /** Invite links are credentials: never leak them in a Referer header. */
 export const metadata = { title: "Join Meraki Inventory", referrer: "no-referrer" as const };
 
-export default async function Page({ params }: { params: Promise<{ token: string }> }) {
-    const { token } = await params;
-    return <InviteClient token={decodeURIComponent(token)} />;
+export const generateStaticParams = () => staticParams(() => invites.map((invite) => ({ token: invite.token })));
+
+export default function Page() {
+    return <InviteClient />;
 }

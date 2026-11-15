@@ -1,13 +1,16 @@
+"use client";
+
 import { CollectionsScreen } from "@/screens/collections/collections-screen";
-import { type SearchParams, oneOf, text, viewLocation, viewer } from "~/lib/view-params";
+import { useView } from "~/lib/use-view";
+import { oneOf, text } from "~/lib/view-params";
 
 /** Deep link: /collections?loc=&view=service-kit&q=pedicure&new=1 */
-export default async function Page({ searchParams }: { searchParams: SearchParams }) {
-    const params = await searchParams;
+export default function Page() {
+    const { params, user, location } = useView();
     return (
         <CollectionsScreen
-            location={await viewLocation(params)}
-            user={await viewer()}
+            location={location}
+            user={user}
             initialView={oneOf(params.view, ["all", "shelf", "service-kit", "count-list", "general"])}
             initialQuery={text(params.q)}
             creating={params.new === "1"}

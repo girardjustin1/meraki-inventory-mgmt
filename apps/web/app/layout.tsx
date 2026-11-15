@@ -1,8 +1,8 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Figtree, Instrument_Serif } from "next/font/google";
 import { isConfigured } from "~/lib/env";
 import { pwaMetadata, pwaViewport } from "~/lib/pwa-metadata";
-import { viewer } from "~/lib/view-params";
 import "./globals.css";
 import { ClientProviders } from "./client-providers";
 import { Providers } from "./providers";
@@ -18,7 +18,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = pwaViewport;
 
-export default async function RootLayout({
+/** Shown for a moment while a page reads its URL and renders. */
+const PageLoading = () => (
+  <div role="status" className="flex min-h-dvh items-center justify-center bg-secondary_alt text-sm text-tertiary">
+    Loading
+  </div>
+);
+
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -28,8 +35,9 @@ export default async function RootLayout({
       <body className="bg-primary antialiased">
         <Providers>
           {/* The "view as" switch exists only while sign-in is not connected. */}
-          <ClientProviders viewerId={(await viewer()).id} canSwitchViewer={!isConfigured.clerk}>
-            {children}
+          <ClientProviders canSwitchViewer={!isConfigured.clerk}>
+            {/* Pages read the query string in the browser (lib/use-view.ts), which needs a Suspense boundary. */}
+            <Suspense fallback={<PageLoading />}>{children}</Suspense>
           </ClientProviders>
         </Providers>
       </body>
