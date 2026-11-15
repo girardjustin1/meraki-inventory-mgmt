@@ -26,6 +26,7 @@ import { REASON_LABEL } from "@/engine/reasons";
 import { stockStatus } from "@/engine/stock";
 import catalogJson from "./seed/catalog.json";
 import enrichmentJson from "./seed/enrichment.json";
+import imagesJson from "./seed/images.json";
 import ordersJson from "./seed/orders.json";
 import type {
     ActivityEntry,
@@ -590,12 +591,49 @@ for (const p of enrichment.products ?? []) {
         item.description = p.description ?? item.description;
         item.upc = p.upc ?? item.upc;
         item.sku = item.sku ?? p.manufacturerSku ?? undefined;
-        if (p.colorHex) item.swatch = p.colorHex;
+        if (p.colorHex) {
+            item.swatch = p.colorHex;
+            item.swatchIsReal = true;
+        }
     }
 }
 
 const itemMap = new Map(items.map((i) => [i.id, i]));
 export const getItem = (id: string) => itemMap.get(id);
+
+// Product photos and swatch colours found per item id (tools/enrich/merge_images.py). A low-confidence
+// match may be the wrong size or finish, so it is kept in the file for a person to review and not shown.
+interface SeedImage {
+    imageUrl: string;
+    sourceUrl?: string | null;
+    confidence: "high" | "medium" | "low";
+    colorHex?: string;
+    /** "photo": the colour was estimated from the bottle photo, so it is still approximate. */
+    colorFrom?: "photo";
+    description?: string;
+    upc?: string;
+}
+export const imageReview = { shown: 0, heldBack: 0 };
+for (const [id, found] of Object.entries((imagesJson as unknown as { items: Record<string, SeedImage> }).items)) {
+    const item = itemMap.get(id);
+    if (!item) continue;
+    if (found.confidence === "low") {
+        imageReview.heldBack += 1;
+        continue;
+    }
+    imageReview.shown += 1;
+    // Photos checked by hand in enrichment.json win over a found one.
+    if (!item.imageUrl) {
+        item.imageUrl = found.imageUrl;
+        item.imageSourceUrl = found.sourceUrl ?? undefined;
+    }
+    item.description = item.description ?? found.description;
+    item.upc = item.upc ?? found.upc;
+    if (found.colorHex) {
+        item.swatch = found.colorHex;
+        item.swatchIsReal = found.colorFrom !== "photo";
+    }
+}
 
 // ------------------------------------------------------------------------------------ stock
 

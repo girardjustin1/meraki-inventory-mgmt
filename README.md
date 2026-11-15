@@ -10,7 +10,7 @@ This is a first-pass prototype. Screens run on Meraki's real catalogue and 2026 
 | --- | --- |
 | [docs/PRD.md](docs/PRD.md) | What the app does, what the spreadsheets showed, milestones, open questions |
 | [docs/architecture.md](docs/architecture.md) | How the pieces fit: Next.js, Clerk, Supabase, Resend |
-| [docs/research/](docs/research/) | UX patterns (Mobbin), inventory controls, vendor and product-data options |
+| [docs/research/](docs/research/) | UX patterns (Mobbin), inventory controls, vendor and product-data options, product imagery and the catalogue corrections it surfaced |
 | [apps/web/README.md](apps/web/README.md) | Connecting Clerk, Supabase, Resend and Vercel |
 
 ## Run it

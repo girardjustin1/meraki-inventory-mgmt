@@ -237,6 +237,8 @@ See `docs/architecture.md` and `supabase/migrations/0001_init.sql`.
   - **Home** reduced to three numbers and today's work; navigation grouped as Inventory, Purchasing, Review, Insights.
   - 29 screens on 40 routes. The engine has 48 tests and the database 350 rule checks; both production builds pass.
 
+- **Product imagery pass** (same day): every polish colour and tip box (1,602) and 92 of 145 supplies now have a product photo from a public brand or distributor page, and 1,253 polish colours use the brand's own swatch colour. 439 items gained a validated barcode. The search also found about 20 wrong codes and 130 misspelt names in the sheets. See `docs/research/04-product-imagery.md`.
+
 Known limits of the prototype:
 
 - Batch actions, in-place edits and collection changes last until the page is reloaded: nothing is written to a database yet.
@@ -246,7 +248,7 @@ Known limits of the prototype:
 - The polish reorder point is worked out in two places (the stock list and the colour forecast) and they can differ by a bottle.
 
 - Screens keep their state locally. Saving a count, receipt or adjustment updates that screen only, and choosing a location does not carry to the next page.
-- Polish swatch colours are approximations from the colour family, not the real shades.
+- 330 polish swatch colours are estimated from the bottle photo and are labelled approximate; the rest come from the brand. Product photos are hot-linked and have not been compared with the shelf by a person.
 - The scanner's fallback decoder is downloaded from a public CDN at run time. For production it should be hosted with the app.
 - Vendor lead times are assumptions. The measured figure is the whole cycle, about 48 days.
 - The flag thresholds shown in Settings are not yet read from the database.

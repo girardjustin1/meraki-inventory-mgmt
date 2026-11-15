@@ -115,8 +115,12 @@ export interface Item {
     upc?: string;
     imageUrl?: string;
     description?: string;
-    /** Approximate swatch colour for polish. */
+    /** The public product page the photo comes from. */
+    imageSourceUrl?: string;
+    /** Swatch colour for polish. */
     swatch?: string;
+    /** True when the swatch was sampled from the brand's own colour chip; otherwise it is a guess from the colour family. */
+    swatchIsReal?: boolean;
     /** A = high value / high risk, counted weekly. C = low value, counted quarterly. */
     abc: AbcClass;
     /** Unit cost in dollars. */

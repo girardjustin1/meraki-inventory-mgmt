@@ -1138,7 +1138,8 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
     const demandSplit = FINISH_ORDER.filter((id) => (demandHere[id] ?? 0) > 0).map((id) => `${FINISH_LABEL[id]} ${demandHere[id]}`);
     const showSplit = isPolish && !finishes;
     // The colour reads as one product: swatch and finishes beside the title, the bottle photo in the details card.
-    const colourHeader = isPolish && Boolean(item.swatch) && Boolean(finishes || lacquer);
+    // The swatch moves up beside the title when the card below has something else to show: finishes, or a bottle photo.
+    const colourHeader = isPolish && Boolean(item.swatch) && Boolean(finishes || lacquer || item.imageUrl);
 
     const finishStatus = (v: StockVariant) =>
         v.onHand <= 0 ? <StockStatusBadge status="out" /> : <span className="text-xs whitespace-nowrap text-quaternary">No par</span>;
@@ -1212,7 +1213,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                     See {lacquer.name} lacquer and gel
                                 </a>
                             )}
-                            <span className="text-quaternary">Swatch colour is approximate.</span>
+                            {!item.swatchIsReal && <span className="text-quaternary">Swatch colour is approximate.</span>}
                         </div>
                     )}
                     <SampleDataNote>
