@@ -254,7 +254,7 @@ export const DataTableToolbar = ({
                 <AriaButton
                     aria-label="Clear search"
                     onPress={() => onQueryChange("")}
-                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-fg-quaternary outline-focus-ring hover:text-fg-quaternary_hover focus-visible:outline-2"
+                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-fg-quaternary outline-focus-ring hover:text-fg-quaternary_hover focus-visible:outline-2 max-lg:size-11"
                 >
                     <XClose className="size-4" aria-hidden="true" />
                 </AriaButton>

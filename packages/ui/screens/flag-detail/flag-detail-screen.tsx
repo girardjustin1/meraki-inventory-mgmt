@@ -22,6 +22,7 @@ import { CURRENT_USER, ROLE_LABEL, TODAY, flags, getItem, getPurchaseOrder, loca
 import type { Flag, FlagStatus, FlagType, LocationId, Note, User } from "@/data/types";
 import { formatDate, formatTime } from "@/engine/dates";
 import { FLAG_TYPE_LABEL } from "@/engine/flags";
+import { can } from "@/engine/permissions";
 import { cx } from "@/utils/cx";
 
 // ------------------------------------------------------------------------------------ review state
@@ -149,9 +150,9 @@ export const useFlagReviews = (source: Flag[], seeds?: Record<string, Parameters
     return { get, act, current };
 };
 
-/** Owners and managers can assign and close flags (see ROLE_PERMISSIONS). */
-export const canReviewFlags = (user: User) => user.role === "owner" || user.role === "manager";
-export const reviewersFor = (location: LocationId) => users.filter((u) => canReviewFlags(u) && u.locations.includes(location));
+/** Who may assign and close flags: decided by the permissions engine, not by job title. */
+export const canReviewFlags = (user: User, location?: LocationId) => can(user, "flags.resolve", location);
+export const reviewersFor = (location: LocationId) => users.filter((u) => canReviewFlags(u, location));
 
 // ------------------------------------------------------------------------------------ pieces
 

@@ -1,15 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useState } from "react";
-import { ArrowNarrowRight, ChevronRight, Download01, FilterLines, Lock01, SearchLg, Settings01 } from "@untitledui/icons";
-import { EmptyState } from "@/components/application/empty-state/empty-state";
+import type { MouseEvent } from "react";
+import { useMemo, useState } from "react";
+import { Download01, Lock01, Settings01 } from "@untitledui/icons";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
-import { NativeSelect } from "@/components/base/select/select-native";
 import { AppShell, Card, PageContent, PageHeader, ROUTES, SampleDataNote, initials } from "@/components/meraki/app-shell";
-import { SampleBadge } from "@/components/meraki/status-badges";
+import { downloadCsv } from "@/components/meraki/collection-export";
+import type { ActiveFilters, ToolbarFilter, ToolbarSort, ToolbarView } from "@/components/meraki/data-table-toolbar";
+import { DataTableToolbar, passesFilters } from "@/components/meraki/data-table-toolbar";
+import type { ListNoticeContent } from "@/components/meraki/list-table";
+import { ColumnLabel, ListEmpty, ListNotice, norm, plural } from "@/components/meraki/list-table";
 import {
     ROLE_LABEL,
     TODAY,
@@ -25,15 +27,22 @@ import {
     users,
     vendorById,
 } from "@/data/inventory";
-import type { LocationId, ReasonCode } from "@/data/types";
+import type { LocationId, ReasonCode, User } from "@/data/types";
 import { addDays, formatDate, formatTime, relativeDays } from "@/engine/dates";
 import { FLAG_TYPE_LABEL } from "@/engine/flags";
+import { can, visibleLocations } from "@/engine/permissions";
+import { REASON_LABEL } from "@/engine/reasons";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { cx } from "@/utils/cx";
 import { useUrlSync } from "@/utils/url-sync";
+import { useViewer } from "@/utils/viewer";
 
 export type ActivityType = "count" | "receive" | "adjust" | "order" | "flag";
+/** `all` is the old way of writing "no date range" in a link. */
+export type ActivityRange = "7" | "30" | "90" | "year" | "all";
+export type ActivitySort = "newest" | "oldest" | "largest";
+type ViewId = ActivityType | "all";
 type Tone = "blue" | "success" | "warning" | "error" | "brand" | "gray";
-type Range = "7" | "30" | "90" | "year" | "all";
 
 const PAGE = 50;
 const SYSTEM = "system";
@@ -42,27 +51,17 @@ const FLAG_GROUP_FROM = 3;
 
 const TYPE_LABEL: Record<ActivityType, string> = { count: "Counts", receive: "Receipts", adjust: "Adjustments", order: "Orders", flag: "Flags" };
 const TYPES: ActivityType[] = ["count", "receive", "adjust", "order", "flag"];
-const RANGE_LABEL: Record<Range, string> = {
-    "7": "Last 7 days",
-    "30": "Last 30 days",
-    "90": "Last 90 days",
-    year: `This year (${TODAY.slice(0, 4)})`,
-    all: "All time",
-};
-
-const REASON_LABEL: Record<ReasonCode, string> = {
-    "cycle-count": "cycle count",
-    "received-order": "received order",
-    "used-in-service": "used in service",
-    damaged: "damaged",
-    expired: "expired",
-    lost: "lost",
-    "suspected-theft": "suspected theft",
-    "sample-or-gift": "sample or gift",
-    "returned-to-vendor": "returned to vendor",
-    transfer: "transfer",
-    correction: "correction",
-};
+const RANGES: { id: Exclude<ActivityRange, "all">; label: string }[] = [
+    { id: "7", label: "Last 7 days" },
+    { id: "30", label: "Last 30 days" },
+    { id: "90", label: "Last 90 days" },
+    { id: "year", label: `This year (${TODAY.slice(0, 4)})` },
+];
+const SORTS: ToolbarSort[] = [
+    { id: "newest", label: "Newest first" },
+    { id: "oldest", label: "Oldest first" },
+    { id: "largest", label: "Largest change first" },
+];
 
 interface LogRow {
     id: string;
@@ -73,20 +72,25 @@ interface LogRow {
     type: ActivityType;
     verb: string;
     tone: Tone;
+    /** The item, order, count or flag the entry is about. */
     object: string;
     href?: string;
-    before?: string;
-    after?: string;
-    /** Signed change when there is no before and after to show. */
-    change?: string;
+    /** Signed change to the quantity on hand, where the entry moved stock. */
+    delta?: number;
+    /** Why stock was adjusted. Only adjustments carry one. */
+    reason?: ReasonCode;
     detail?: string;
     isSample: boolean;
     imported: boolean;
+    /** Everything the search box looks through, already normalised. */
+    haystack: string[];
 }
+
+const whoName = (userId: string) => (userId === SYSTEM ? "Flag rules" : (userById(userId)?.name ?? "Not recorded"));
 
 /** One log, built from the activity feed, the stock ledger, purchase orders and the flag rules. */
 const buildLog = (): LogRow[] => {
-    const rows: LogRow[] = [];
+    const rows: Omit<LogRow, "haystack">[] = [];
 
     // Counts and the generated November orders. Adjustments are taken from the ledger below, which has the quantities.
     for (const a of activity) {
@@ -122,8 +126,8 @@ const buildLog = (): LogRow[] => {
                 tone: "success",
                 object: item?.name ?? m.itemId,
                 href: po ? ROUTES.order(po.id) : ROUTES.item(m.itemId),
-                change: `+${m.delta}`,
-                detail: [po ? `On ${po.number}` : "", m.note ? `Note: ${m.note}` : ""].filter(Boolean).join(" · "),
+                delta: m.delta,
+                detail: [po ? `On ${po.number}` : "", m.note ?? ""].filter(Boolean).join(" · "),
                 isSample: m.isSample,
                 imported: !m.isSample,
             });
@@ -138,9 +142,9 @@ const buildLog = (): LogRow[] => {
                 tone: m.reason === "lost" || m.reason === "suspected-theft" ? "error" : "warning",
                 object: item?.name ?? m.itemId,
                 href: ROUTES.item(m.itemId),
-                before: String(m.balance - m.delta),
-                after: String(m.balance),
-                detail: `Reason given: ${REASON_LABEL[m.reason]}. ${m.note ?? "No note."}`,
+                delta: m.delta,
+                reason: m.reason,
+                detail: `${REASON_LABEL[m.reason]} · ${m.balance - m.delta} to ${m.balance} · ${m.note ?? "no note"}`,
                 isSample: m.isSample,
                 imported: false,
             });
@@ -233,352 +237,552 @@ const buildLog = (): LogRow[] => {
         });
     }
 
-    const key = (r: LogRow) => (r.at.length === 10 ? `${r.at}T00:00:00Z` : r.at);
-    return rows.sort((a, b) => key(b).localeCompare(key(a)) || a.id.localeCompare(b.id));
+    return rows.map((r) => ({ ...r, haystack: [r.object, r.verb, r.detail ?? "", whoName(r.userId)].map(norm) }));
 };
 
 const LOG = buildLog();
 
+const dayOf = (row: LogRow) => row.at.slice(0, 10);
+const stamp = (row: LogRow) => (row.at.length === 10 ? `${row.at}T00:00:00Z` : row.at);
+const shortDate = (day: string) => formatDate(day, day.slice(0, 4) !== TODAY.slice(0, 4));
+
 const dayHeading = (day: string) => {
     const rel = relativeDays(day, TODAY);
-    const date = formatDate(day, day.slice(0, 4) !== TODAY.slice(0, 4));
-    return rel === "today" ? `Today, ${date}` : rel === "yesterday" ? `Yesterday, ${date}` : date;
+    return rel === "today" ? `Today, ${shortDate(day)}` : rel === "yesterday" ? `Yesterday, ${shortDate(day)}` : shortDate(day);
 };
 
-const Chip = ({ isSelected, onPress, children }: { isSelected: boolean; onPress: () => void; children: ReactNode }) => (
-    <button
-        type="button"
-        aria-pressed={isSelected}
-        onClick={onPress}
-        className={cx(
-            "inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap ring-1 outline-focus-ring transition duration-100 ease-linear ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 lg:min-h-9 lg:px-3",
-            isSelected ? "bg-brand-primary_alt text-brand-secondary ring-brand" : "bg-primary text-secondary ring-primary hover:bg-primary_hover",
-        )}
-    >
-        {children}
-    </button>
+const changeText = (delta: number) => (delta > 0 ? `+${delta}` : delta < 0 ? `−${Math.abs(delta)}` : "0");
+
+const FILTER_READ: Record<string, (row: LogRow) => string | undefined> = {
+    person: (r) => r.userId,
+    reason: (r) => r.reason,
+};
+
+// ------------------------------------------------------------------------------------ small pieces
+
+const Who = ({ userId }: { userId: string }) => (
+    <span className="flex min-w-0 items-center gap-2">
+        {userId === SYSTEM ? <Avatar size="xs" placeholderIcon={Settings01} /> : <Avatar size="xs" initials={initials(whoName(userId))} />}
+        <span className="truncate text-secondary">{whoName(userId)}</span>
+    </span>
 );
 
-const Who = ({ userId, compact }: { userId: string; compact?: boolean }) => {
-    if (userId === SYSTEM) {
-        return (
-            <span className="flex min-w-0 items-center gap-2">
-                <Avatar size="xs" placeholderIcon={Settings01} />
-                <span className="truncate text-sm font-medium text-secondary">Flag rules{compact ? "" : " (automatic)"}</span>
-            </span>
-        );
-    }
-    const user = userById(userId);
-    return (
-        <span className="flex min-w-0 items-center gap-2">
-            <Avatar size="xs" initials={initials(user?.name ?? "?")} />
-            <span className="truncate text-sm font-medium text-primary">{user?.name ?? "Not recorded"}</span>
-        </span>
-    );
-};
-
-const Change = ({ row }: { row: LogRow }) => {
-    if (row.before !== undefined && row.after !== undefined) {
-        return (
-            <span className="inline-flex items-center gap-1.5 text-sm whitespace-nowrap tabular-nums">
-                <span className="text-tertiary">{row.before}</span>
-                <ArrowNarrowRight className="size-3.5 text-fg-quaternary" aria-label="changed to" />
-                <span className="font-semibold text-primary">{row.after}</span>
-            </span>
-        );
-    }
-    if (row.change) return <span className="text-sm font-semibold whitespace-nowrap text-primary tabular-nums">{row.change}</span>;
-    return null;
-};
-
-const Markers = ({ row }: { row: LogRow }) => (
-    <>
-        {row.imported && <span className="text-xs whitespace-nowrap text-quaternary">Imported from the 2026 backlog</span>}
-        {row.isSample && <SampleBadge />}
-    </>
+/** A faint dot for a generated sample entry, as on the stock list. */
+const SampleDot = () => (
+    <span title="Sample entry" className="size-1 shrink-0 rounded-full bg-fg-warning-secondary opacity-60">
+        <span className="sr-only">Sample entry</span>
+    </span>
 );
 
 // ------------------------------------------------------------------------------------ screen
 
 interface ActivityScreenProps {
-    /** Date range to start with (deep link `?range=`). */
-    initialRange?: Range;
-    /** Person filter to start with (deep link `?person=`). */
-    initialPerson?: string;
     location?: LocationId;
-    /** Type filter to start with. */
+    /** Who is looking. Defaults to the person using the app; stories pass a sample person. */
+    user?: User;
+    /** Kind of entry to start on (deep link `?type=`). */
     type?: ActivityType;
+    /** Date range to start with (deep link `?range=`). */
+    initialRange?: ActivityRange;
+    /** People to start filtered to: user ids, or `system` for the flag rules (deep link `?person=`). */
+    initialPeople?: string[];
+    /** Adjustment reasons to start filtered to (deep link `?reason=`). */
+    initialReasons?: ReasonCode[];
+    /** Start with every location the person may see (deep link `?scope=all`). */
+    initialAllLocations?: boolean;
+    /** Search text to start with (deep link `?q=`). */
+    initialQuery?: string;
+    /** Sort to start with (deep link `?sort=`). */
+    initialSort?: ActivitySort;
 }
 
+/** The append-only log: who did what to stock, orders and counts. Nothing here is edited or deleted. */
 export const ActivityScreen = ({
     location: initialLocation = "lynnfield",
+    user: userProp,
     type: initialType,
     initialRange = "all",
-    initialPerson = "all",
+    initialPeople = [],
+    initialReasons = [],
+    initialAllLocations = false,
+    initialQuery = "",
+    initialSort = "newest",
 }: ActivityScreenProps) => {
-    const [location, setLocation] = useState<LocationId>(initialLocation);
-    const [scope, setScope] = useState<LocationId | "all">(initialLocation);
-    const [type, setType] = useState<ActivityType | "all">(initialType ?? "all");
-    const [person, setPerson] = useState(initialPerson);
-    const [range, setRange] = useState<Range>(initialRange);
-    useUrlSync({ type: type === "all" ? undefined : type, person: person === "all" ? undefined : person, range: range === "all" ? undefined : range });
-    const [limit, setLimit] = useState(PAGE);
-    const [exported, setExported] = useState(false);
+    const viewer = useViewer();
+    const user = userProp ?? viewer;
+    const isDesktop = useBreakpoint("lg");
 
-    const reset = () => setLimit(PAGE);
-    const since = range === "all" ? "" : range === "year" ? `${TODAY.slice(0, 4)}-01-01` : addDays(TODAY, -Number(range));
-    const inScope = LOG.filter((r) => (scope === "all" || r.locationId === scope) && r.at.slice(0, 10) >= since && (person === "all" || r.userId === person));
-    const rows = inScope.filter((r) => type === "all" || r.type === type);
-    const shown = rows.slice(0, limit);
-    const days = [...new Set(shown.map((r) => r.at.slice(0, 10)))];
-    const filtersOn = type !== "all" || person !== "all" || range !== "all";
-    const people = users.filter((u) => LOG.some((r) => r.userId === u.id));
+    const [location, setLocation] = useState<LocationId>(initialLocation);
+    const [view, setView] = useState<ViewId>(initialType ?? "all");
+    const [filters, setFilters] = useState<ActiveFilters>(() => {
+        const start: ActiveFilters = {};
+        if (initialPeople.length) start.person = initialPeople;
+        if (initialRange !== "all") start.range = [initialRange];
+        if (initialReasons.length) start.reason = initialReasons;
+        if (initialAllLocations) start.scope = ["all"];
+        return start;
+    });
+    const [query, setQuery] = useState(initialQuery);
+    const [sort, setSort] = useState<ActivitySort>(initialSort);
+    const [visible, setVisible] = useState(PAGE);
+    const [notice, setNotice] = useState<ListNoticeContent | null>(null);
+
+    const mayRoam = useMemo(
+        () =>
+            visibleLocations(
+                user,
+                locations.map((l) => l.id),
+            ),
+        [user],
+    );
+    const everywhere = filters.scope?.[0] === "all" && mayRoam.length > 1;
+    const range = filters.range?.[0] as Exclude<ActivityRange, "all"> | undefined;
+
+    // null (not undefined) removes a parameter: useUrlSync serialises its input, which drops undefined keys.
+    useUrlSync({
+        type: view === "all" ? null : view,
+        person: (filters.person ?? []).join(",") || null,
+        range: range ?? null,
+        reason: (filters.reason ?? []).join(",") || null,
+        scope: everywhere ? "all" : null,
+        q: query || null,
+        sort: sort === "newest" ? null : sort,
+    });
+
+    // Everything in scope and in the date range: what the filter options and their counts are drawn from.
+    const inRange = useMemo(() => {
+        const since = range === "year" ? `${TODAY.slice(0, 4)}-01-01` : range ? addDays(TODAY, -Number(range)) : "";
+        return LOG.filter((r) => (everywhere ? mayRoam.includes(r.locationId) : r.locationId === location) && dayOf(r) >= since);
+    }, [everywhere, location, range, mayRoam]);
+
+    // Everything but the view: each view's count is what picking it would show.
+    const matching = useMemo(() => {
+        const q = norm(query);
+        return inRange.filter((r) => passesFilters(r, filters, FILTER_READ) && (!q || r.haystack.some((field) => field.includes(q))));
+    }, [inRange, filters, query]);
+
+    const rows = useMemo(() => {
+        const out = matching.filter((r) => view === "all" || r.type === view);
+        const newest = (a: LogRow, b: LogRow) => stamp(b).localeCompare(stamp(a)) || a.id.localeCompare(b.id);
+        const compare: Record<ActivitySort, (a: LogRow, b: LogRow) => number> = {
+            newest,
+            oldest: (a, b) => stamp(a).localeCompare(stamp(b)) || a.id.localeCompare(b.id),
+            largest: (a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0) || Number(b.delta !== undefined) - Number(a.delta !== undefined) || newest(a, b),
+        };
+        return out.sort(compare[sort]);
+    }, [matching, view, sort]);
+
+    const shown = rows.slice(0, visible);
+    // Day headings only make sense while the list runs in date order.
+    const grouped = sort !== "largest";
+    const days = grouped ? [...new Set(shown.map(dayOf))] : [];
+    const perDay = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const r of rows) counts.set(dayOf(r), (counts.get(dayOf(r)) ?? 0) + 1);
+        return counts;
+    }, [rows]);
+
+    const views: ToolbarView[] = [
+        { id: "all", label: "All", count: matching.length },
+        ...TYPES.map((t) => ({ id: t, label: TYPE_LABEL[t], count: matching.filter((r) => r.type === t).length })),
+    ];
+
+    const filterDefs: ToolbarFilter[] = useMemo(() => {
+        const tally = (read: (r: LogRow) => string | undefined) => {
+            const counts = new Map<string, number>();
+            for (const r of inRange) {
+                const key = read(r);
+                if (key !== undefined) counts.set(key, (counts.get(key) ?? 0) + 1);
+            }
+            return counts;
+        };
+        const byPerson = tally((r) => r.userId);
+        const byReason = tally((r) => r.reason);
+        // People with entries here, plus anyone a link already filters to.
+        const people = users.filter((u) => byPerson.has(u.id) || (filters.person ?? []).includes(u.id));
+        return [
+            {
+                id: "person",
+                label: "Person",
+                options: [
+                    ...people.map((u) => ({ id: u.id, label: `${u.name} (${ROLE_LABEL[u.role]})`, count: byPerson.get(u.id) ?? 0 })),
+                    { id: SYSTEM, label: "Flag rules (automatic)", count: byPerson.get(SYSTEM) ?? 0 },
+                ],
+            },
+            { id: "range", label: "Date", multiple: false, options: RANGES.map((r) => ({ id: r.id, label: r.label })) },
+            {
+                id: "reason",
+                label: "Reason",
+                options: [...byReason]
+                    .map(([id, count]) => ({ id, label: REASON_LABEL[id as ReasonCode], count }))
+                    .sort((a, b) => a.label.localeCompare(b.label)),
+            },
+            ...(mayRoam.length > 1 ? [{ id: "scope", label: "Location", multiple: false, options: [{ id: "all", label: "Both locations" }] }] : []),
+        ];
+    }, [inRange, filters.person, mayRoam]);
+
+    const filtersOn = query !== "" || Object.keys(filters).length > 0;
+    const where = everywhere ? "both locations" : locationName(location);
+    // What this view holds before any search or filter, so the summary only appears when those narrow it.
+    const total = LOG.filter((r) => (everywhere ? mayRoam.includes(r.locationId) : r.locationId === location) && (view === "all" || r.type === view)).length;
+    const narrowed = rows.length !== total;
+    const summaryText = narrowed ? `${rows.length.toLocaleString("en-US")} of ${plural(total, "entry", "entries")}` : undefined;
+
+    const relist = () => setVisible(PAGE);
+    const clearAll = () => {
+        setQuery("");
+        setFilters({});
+        setView("all");
+        relist();
+    };
+
+    const exportCsv = () => {
+        const name = `activity-${everywhere ? "all" : location}-${TODAY}.csv`;
+        downloadCsv(
+            name,
+            ["Date", "Time", "Who", "What happened", "Detail", "Item or order", "Change", "Location", "Source"],
+            rows.map((r) => [
+                dayOf(r),
+                r.at.length > 10 ? formatTime(r.at) : undefined,
+                whoName(r.userId),
+                r.verb,
+                r.detail,
+                r.object,
+                r.delta,
+                locationName(r.locationId),
+                r.imported ? "Imported from the 2026 backlog" : r.isSample ? "Sample" : undefined,
+            ]),
+        );
+        setNotice({ text: `${plural(rows.length, "entry", "entries")} exported as ${name}.` });
+    };
+
+    // ---------------------------------------------------------------- no access
+
+    if (!can(user, "activity.view")) {
+        return (
+            <AppShell activeUrl={ROUTES.activity} location={location} onLocationChange={setLocation} user={userProp}>
+                <PageContent>
+                    <PageHeader
+                        title={
+                            <>
+                                Activity <em>log</em>
+                            </>
+                        }
+                    />
+                    <ListEmpty
+                        icon={Lock01}
+                        title="The activity log is for managers and owners"
+                        action={
+                            <Button color="secondary" size="md" href={ROUTES.home} className="max-lg:min-h-11">
+                                Back to home
+                            </Button>
+                        }
+                    >
+                        Your role ({ROLE_LABEL[user.role]}) does not include the log of who changed what. What you count, use and receive is still recorded on
+                        it.
+                    </ListEmpty>
+                </PageContent>
+            </AppShell>
+        );
+    }
+
+    // ---------------------------------------------------------------- cells
+
+    // The whole row opens the record the entry is about. The name is the real link; other links are left alone.
+    const openRow = (event: MouseEvent<HTMLTableRowElement>) => {
+        const target = event.target as HTMLElement;
+        if (!event.currentTarget.contains(target) || target.closest("a, button, input, label")) return;
+        event.currentTarget.querySelector<HTMLAnchorElement>("a[data-row-link]")?.click();
+    };
+
+    const when = (r: LogRow) => {
+        const time = r.at.length > 10 ? formatTime(r.at) : undefined;
+        if (grouped) {
+            return (
+                time ?? (
+                    <span className="text-quaternary" title="The backlog records the day, not the time">
+                        –<span className="sr-only">Time not recorded</span>
+                    </span>
+                )
+            );
+        }
+        return time ? `${shortDate(dayOf(r))}, ${time}` : shortDate(dayOf(r));
+    };
+
+    const what = (r: LogRow) => (
+        <span className="flex min-w-0 items-center gap-2">
+            <Badge type="pill-color" color={r.tone} size="sm" className="shrink-0">
+                {r.verb}
+            </Badge>
+            {r.detail && <span className="truncate text-tertiary">{r.detail}</span>}
+            {r.imported && (
+                <span
+                    className="shrink-0 text-xs text-quaternary"
+                    title="Imported from the 2026 backlog, which records the day but not the time or who logged it"
+                >
+                    Imported
+                </span>
+            )}
+            {r.isSample && <SampleDot />}
+        </span>
+    );
+
+    const change = (r: LogRow) =>
+        r.delta === undefined ? <span className="text-quaternary">–</span> : <span className="font-semibold text-primary">{changeText(r.delta)}</span>;
+
+    const tableRow = (r: LogRow) => (
+        <tr
+            key={r.id}
+            data-row={r.id}
+            data-type={r.type}
+            onClick={r.href ? openRow : undefined}
+            className={cx(
+                "h-12 transition duration-100 ease-linear [&>td]:border-b [&>td]:border-secondary",
+                r.href && "cursor-pointer hover:bg-primary_hover",
+            )}
+        >
+            <td className="py-0 pr-3 pl-5 whitespace-nowrap text-tertiary tabular-nums">{when(r)}</td>
+            <td className="max-w-48 px-3 whitespace-nowrap">
+                <Who userId={r.userId} />
+            </td>
+            <td className="max-w-64 px-3 whitespace-nowrap xl:max-w-80 2xl:max-w-96">{what(r)}</td>
+            <td className="w-full max-w-0 min-w-48 px-3">
+                {r.href ? (
+                    <a
+                        data-row-link
+                        href={r.href}
+                        className="block truncate rounded-xs font-medium text-primary outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
+                    >
+                        {r.object}
+                    </a>
+                ) : (
+                    <span className="block truncate font-medium text-primary">{r.object}</span>
+                )}
+            </td>
+            <td className="px-3 text-right whitespace-nowrap tabular-nums">{change(r)}</td>
+            <td className="py-0 pr-5 pl-3 whitespace-nowrap text-secondary">{locationName(r.locationId)}</td>
+        </tr>
+    );
+
+    const card = (r: LogRow) => {
+        const time = r.at.length > 10 ? formatTime(r.at) : undefined;
+        const meta = [
+            whoName(r.userId),
+            grouped ? time : [shortDate(dayOf(r)), time].filter(Boolean).join(", "),
+            everywhere ? locationName(r.locationId) : undefined,
+            r.detail,
+        ]
+            .filter(Boolean)
+            .join(" · ");
+        const body = (
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="flex items-center gap-2">
+                    <Badge type="pill-color" color={r.tone} size="sm" className="shrink-0">
+                        {r.verb}
+                    </Badge>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-primary">{r.object}</span>
+                    {r.delta !== undefined && <span className="shrink-0 text-sm font-semibold text-primary tabular-nums">{changeText(r.delta)}</span>}
+                </span>
+                <span className="flex min-w-0 items-center gap-1.5 text-xs text-tertiary">
+                    <span className="truncate">{meta}</span>
+                    {r.isSample && <SampleDot />}
+                </span>
+            </span>
+        );
+        const rowClass = "flex min-h-14 min-w-0 items-center gap-3 px-3.5 py-2.5 outline-focus-ring focus-visible:outline-2 focus-visible:-outline-offset-2";
+        return (
+            <li key={r.id} data-row={r.id} data-type={r.type}>
+                {r.href ? (
+                    <a href={r.href} className={rowClass}>
+                        {body}
+                    </a>
+                ) : (
+                    <div className={rowClass}>{body}</div>
+                )}
+            </li>
+        );
+    };
 
     return (
         <AppShell
             activeUrl={ROUTES.activity}
             location={location}
-            onLocationChange={(loc) => {
-                setLocation(loc);
-                setScope(loc);
-                reset();
+            onLocationChange={(next) => {
+                setLocation(next);
+                relist();
             }}
+            user={userProp}
         >
-            <PageContent>
-                <PageHeader
-                    title={
-                        <>
-                            Activity <em>log</em>
-                        </>
-                    }
-                    description="Who did what to stock, orders and counts, newest first."
-                    actions={
-                        <div className="flex flex-wrap items-center gap-3">
-                            {exported && (
-                                <span role="status" className="text-sm text-tertiary">
-                                    Export is not connected in the prototype.
-                                </span>
-                            )}
-                            <Button color="secondary" size="md" iconLeading={Download01} onClick={() => setExported(true)}>
+            <PageContent className="gap-4 lg:gap-5">
+                <div className="flex flex-col gap-2.5">
+                    <PageHeader
+                        title={
+                            <>
+                                Activity <em>log</em>
+                            </>
+                        }
+                        description="Entries are never edited or deleted. A mistake is corrected with a new entry, and both stay on the log."
+                        actions={
+                            <Button
+                                color="secondary"
+                                size="md"
+                                className="max-lg:min-h-11"
+                                iconLeading={Download01}
+                                isDisabled={rows.length === 0}
+                                data-testid="export-csv"
+                                onClick={exportCsv}
+                            >
                                 Export CSV
                             </Button>
-                        </div>
-                    }
-                />
-
-                <p className="flex items-start gap-2 rounded-lg bg-brand-primary_alt px-3 py-2.5 text-sm text-secondary">
-                    <Lock01 className="mt-0.5 size-4 shrink-0 text-fg-brand-primary" aria-hidden="true" />
-                    <span>
-                        <span className="font-semibold">Entries cannot be edited or deleted.</span> A mistake is corrected with a new entry, and both stay on
-                        the log.
-                    </span>
-                </p>
-
-                <div className="flex flex-col gap-3">
-                    <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 md:-mx-8 md:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0">
-                        <FilterLines className="hidden size-4 shrink-0 text-fg-quaternary lg:block" aria-hidden="true" />
-                        <Chip
-                            isSelected={type === "all"}
-                            onPress={() => {
-                                setType("all");
-                                reset();
-                            }}
-                        >
-                            All <span className="text-xs text-tertiary tabular-nums">{inScope.length}</span>
-                        </Chip>
-                        {TYPES.map((t) => (
-                            <Chip
-                                key={t}
-                                isSelected={type === t}
-                                onPress={() => {
-                                    setType(type === t ? "all" : t);
-                                    reset();
-                                }}
-                            >
-                                {TYPE_LABEL[t]} <span className="text-xs text-tertiary tabular-nums">{inScope.filter((r) => r.type === t).length}</span>
-                            </Chip>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:items-center">
-                        <NativeSelect
-                            aria-label="Person"
-                            size="sm"
-                            className="lg:w-56"
-                            selectClassName="min-h-11 lg:min-h-9 pr-8"
-                            value={person}
-                            onChange={(e) => {
-                                setPerson(e.target.value);
-                                reset();
-                            }}
-                            options={[
-                                { label: "Everyone", value: "all" },
-                                ...people.map((u) => ({ label: `${u.name} (${ROLE_LABEL[u.role]})`, value: u.id })),
-                                { label: "Flag rules (automatic)", value: SYSTEM },
-                            ]}
-                        />
-                        <NativeSelect
-                            aria-label="Date range"
-                            size="sm"
-                            className="lg:w-44"
-                            selectClassName="min-h-11 lg:min-h-9 pr-8"
-                            value={range}
-                            onChange={(e) => {
-                                setRange(e.target.value as Range);
-                                reset();
-                            }}
-                            options={(Object.keys(RANGE_LABEL) as Range[]).map((r) => ({ label: RANGE_LABEL[r], value: r }))}
-                        />
-                        <NativeSelect
-                            aria-label="Location"
-                            size="sm"
-                            className="lg:w-44"
-                            selectClassName="min-h-11 lg:min-h-9 pr-8"
-                            value={scope}
-                            onChange={(e) => {
-                                const next = e.target.value as LocationId | "all";
-                                setScope(next);
-                                if (next !== "all") setLocation(next);
-                                reset();
-                            }}
-                            options={[...locations.map((l) => ({ label: l.shortName, value: l.id as string })), { label: "Both locations", value: "all" }]}
-                        />
-                        {filtersOn && (
-                            <Button
-                                color="link-gray"
-                                size="sm"
-                                className="justify-self-start max-lg:min-h-11"
-                                onClick={() => {
-                                    setType("all");
-                                    setPerson("all");
-                                    setRange("all");
-                                    reset();
-                                }}
-                            >
-                                Clear filters
-                            </Button>
-                        )}
-                    </div>
+                        }
+                    />
+                    <SampleDataNote>
+                        Receipts and order dates are real: they come from Meraki&apos;s 2026 backlog spreadsheet, which records the day but not the time or who
+                        logged it. Those entries are marked Imported, and the names shown against them are placeholders. Counts, adjustments and the November
+                        orders are sample entries, marked with a faint dot.
+                    </SampleDataNote>
                 </div>
 
-                {rows.length === 0 ? (
-                    <Card className="py-10 lg:py-14">
-                        <EmptyState size="md">
-                            <EmptyState.Header pattern="none">
-                                <EmptyState.FeaturedIcon icon={SearchLg} color="gray" theme="modern" />
-                            </EmptyState.Header>
-                            <EmptyState.Content>
-                                <EmptyState.Title>No entries match</EmptyState.Title>
-                                <EmptyState.Description>
-                                    Nothing was logged at {locationName(scope)} for these filters. Try a longer date range or another person.
-                                </EmptyState.Description>
-                            </EmptyState.Content>
-                        </EmptyState>
-                    </Card>
-                ) : (
-                    <div className="flex flex-col gap-5">
-                        {days.map((d) => {
-                            const dayRows = shown.filter((r) => r.at.slice(0, 10) === d);
-                            const total = rows.filter((r) => r.at.slice(0, 10) === d).length;
-                            return (
-                                <section key={d} className="flex flex-col gap-2">
-                                    <h2 className="flex items-baseline gap-2 text-sm font-semibold text-secondary">
+                <div className="flex flex-col gap-3">
+                    <DataTableToolbar
+                        label={`activity at ${where}`}
+                        views={views}
+                        view={view}
+                        onViewChange={(id) => {
+                            setView(id as ViewId);
+                            relist();
+                        }}
+                        query={query}
+                        onQueryChange={(value) => {
+                            setQuery(value);
+                            relist();
+                        }}
+                        searchPlaceholder="Search by item, order, person or what happened"
+                        compactSearchPlaceholder="Search the log"
+                        filters={filterDefs}
+                        activeFilters={filters}
+                        onFiltersChange={(next) => {
+                            setFilters(next);
+                            relist();
+                        }}
+                        sorts={SORTS}
+                        sort={sort}
+                        onSortChange={(id) => {
+                            setSort(id as ActivitySort);
+                            relist();
+                        }}
+                        summary={summaryText}
+                    />
+
+                    {rows.length === 0 ? (
+                        <ListEmpty
+                            title="No entries match"
+                            action={
+                                (filtersOn || view !== "all") && (
+                                    <Button color="secondary" size="md" className="max-lg:min-h-11" data-testid="clear-all" onClick={clearAll}>
+                                        Clear search and filters
+                                    </Button>
+                                )
+                            }
+                        >
+                            {filtersOn || view !== "all"
+                                ? `Nothing logged at ${where} fits this view, search and these filters.`
+                                : `Nothing has been logged at ${where} yet.`}
+                        </ListEmpty>
+                    ) : isDesktop ? (
+                        // `relative` keeps the visually hidden labels inside the scroller, so they cannot widen the page.
+                        <div className="relative overflow-x-auto rounded-xl bg-primary shadow-xs ring-1 ring-secondary">
+                            <table className="w-full text-sm" aria-label={`Activity at ${where}`}>
+                                <thead>
+                                    <tr className="h-10 bg-secondary">
+                                        <th scope="col" className="border-b border-secondary py-0 pr-3 pl-5 text-left">
+                                            <ColumnLabel label="When" />
+                                        </th>
+                                        <th scope="col" className="border-b border-secondary px-3 text-left">
+                                            <ColumnLabel label="Who" />
+                                        </th>
+                                        <th scope="col" className="border-b border-secondary px-3 text-left">
+                                            <ColumnLabel label="What happened" />
+                                        </th>
+                                        <th scope="col" className="w-full border-b border-secondary px-3 text-left">
+                                            <ColumnLabel label="Item or order" />
+                                        </th>
+                                        <th scope="col" className="border-b border-secondary px-3 text-right">
+                                            <ColumnLabel
+                                                label="Change"
+                                                tooltip="How the entry moved the quantity on hand. Counts, orders and flags do not move stock by themselves."
+                                            />
+                                        </th>
+                                        <th scope="col" className="border-b border-secondary py-0 pr-5 pl-3 text-left">
+                                            <ColumnLabel label="Location" />
+                                        </th>
+                                    </tr>
+                                </thead>
+                                {grouped ? (
+                                    days.map((d) => (
+                                        <tbody key={d} data-day={d} className="[&:last-child>tr:last-child>td]:border-b-0">
+                                            <tr className="h-9 bg-secondary/60">
+                                                <th
+                                                    scope="colgroup"
+                                                    colSpan={6}
+                                                    className="border-b border-secondary px-5 text-left text-xs font-semibold text-secondary"
+                                                >
+                                                    {dayHeading(d)}
+                                                    <span className="ml-2 font-medium text-tertiary">{plural(perDay.get(d) ?? 0, "entry", "entries")}</span>
+                                                </th>
+                                            </tr>
+                                            {shown.filter((r) => dayOf(r) === d).map(tableRow)}
+                                        </tbody>
+                                    ))
+                                ) : (
+                                    <tbody className="[&>tr:last-child>td]:border-b-0">{shown.map(tableRow)}</tbody>
+                                )}
+                            </table>
+                        </div>
+                    ) : grouped ? (
+                        <div className="flex flex-col gap-4">
+                            {days.map((d) => (
+                                <section key={d} data-day={d} className="flex flex-col gap-1.5">
+                                    <h2 className="flex items-baseline gap-2 pl-1 text-sm font-semibold text-secondary">
                                         {dayHeading(d)}
-                                        <span className="text-xs font-medium text-tertiary">
-                                            {total} entr{total === 1 ? "y" : "ies"}
-                                        </span>
+                                        <span className="text-xs font-medium text-tertiary">{plural(perDay.get(d) ?? 0, "entry", "entries")}</span>
                                     </h2>
-                                    <ul className="divide-y divide-secondary overflow-hidden rounded-xl bg-primary shadow-xs ring-1 ring-secondary ring-inset">
-                                        {dayRows.map((r) => (
-                                            <li key={r.id} className="relative transition duration-100 ease-linear hover:bg-primary_hover">
-                                                {/* Desktop: one line per entry */}
-                                                <div className="hidden items-center gap-4 px-5 py-3 lg:flex">
-                                                    <span className="w-16 shrink-0 text-xs text-tertiary tabular-nums">
-                                                        {r.at.length > 10 ? formatTime(r.at) : <span className="sr-only">Time not recorded</span>}
-                                                    </span>
-                                                    <span className="w-44 shrink-0">
-                                                        <Who userId={r.userId} />
-                                                    </span>
-                                                    <span className="w-32 shrink-0">
-                                                        <Badge type="pill-color" color={r.tone} size="sm">
-                                                            {r.verb}
-                                                        </Badge>
-                                                    </span>
-                                                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                                                        <RowLink row={r} />
-                                                        {r.detail && <span className="truncate text-xs text-tertiary">{r.detail}</span>}
-                                                    </span>
-                                                    <span className="flex shrink-0 items-center gap-3">
-                                                        <Change row={r} />
-                                                        <Markers row={r} />
-                                                    </span>
-                                                    <ChevronRight className="size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
-                                                </div>
-
-                                                {/* Phone: stacked */}
-                                                <div className="flex flex-col gap-2 p-4 lg:hidden">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <Who userId={r.userId} compact />
-                                                        <span className="shrink-0 text-xs text-tertiary tabular-nums">
-                                                            {r.at.length > 10 ? formatTime(r.at) : ""}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-start gap-2">
-                                                        <Badge type="pill-color" color={r.tone} size="sm" className="mt-px shrink-0">
-                                                            {r.verb}
-                                                        </Badge>
-                                                        <span className="min-w-0 flex-1">
-                                                            <RowLink row={r} wrap />
-                                                        </span>
-                                                        <Change row={r} />
-                                                    </div>
-                                                    {r.detail && <p className="text-xs text-tertiary">{r.detail}</p>}
-                                                    {(r.imported || r.isSample) && (
-                                                        <div className="flex items-center gap-2">
-                                                            <Markers row={r} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <Card padded={false}>
+                                        <ul className="divide-y divide-secondary">{shown.filter((r) => dayOf(r) === d).map(card)}</ul>
+                                    </Card>
                                 </section>
-                            );
-                        })}
+                            ))}
+                        </div>
+                    ) : (
+                        <Card padded={false}>
+                            <ul className="divide-y divide-secondary">{shown.map(card)}</ul>
+                        </Card>
+                    )}
 
+                    {rows.length > 0 && (
                         <div className="flex flex-col items-center gap-2">
-                            <p className="text-sm text-tertiary">
-                                Showing {shown.length} of {rows.length} entries
-                            </p>
+                            {rows.length > shown.length && isDesktop && (
+                                <p className="text-sm text-tertiary">
+                                    Showing {shown.length} of {rows.length.toLocaleString("en-US")}
+                                </p>
+                            )}
                             {rows.length > shown.length && (
-                                <Button color="secondary" size="md" onClick={() => setLimit((n) => n + PAGE)}>
-                                    Show {Math.min(PAGE, rows.length - shown.length)} more
+                                <Button
+                                    color="secondary"
+                                    size="md"
+                                    className="self-center max-lg:min-h-11 max-lg:w-full"
+                                    data-testid="show-more"
+                                    onClick={() => setVisible((v) => v + PAGE)}
+                                >
+                                    Show {Math.min(PAGE, rows.length - shown.length)} more ({(rows.length - shown.length).toLocaleString("en-US")} left)
                                 </Button>
                             )}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
-                <SampleDataNote>
-                    Receipts and order dates are real: they come from Meraki&apos;s 2026 backlog spreadsheet, which records the day but not the time or who
-                    logged it. The names shown against them are placeholders. Counts, adjustments and the November orders are sample entries.
-                </SampleDataNote>
+                <ListNotice notice={notice} onDismiss={() => setNotice(null)} />
             </PageContent>
         </AppShell>
     );
 };
-
-/** The object of the entry, linking to its record. The link stretches over the whole row. */
-const RowLink = ({ row, wrap }: { row: LogRow; wrap?: boolean }) =>
-    row.href ? (
-        <a
-            href={row.href}
-            className={cx(
-                "text-sm font-medium text-primary outline-focus-ring after:absolute after:inset-0 focus-visible:outline-2 focus-visible:-outline-offset-2",
-                wrap ? "break-words" : "truncate",
-            )}
-        >
-            {row.object}
-        </a>
-    ) : (
-        <span className={cx("text-sm font-medium text-primary", wrap ? "break-words" : "truncate")}>{row.object}</span>
-    );
