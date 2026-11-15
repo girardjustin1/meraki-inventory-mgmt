@@ -74,24 +74,26 @@ import {
     serviceRecipes,
     stockRows,
     userById,
+    variantDemand,
     vendorById,
     vendors,
 } from "@/data/inventory";
 import type { IncomingLine } from "@/data/inventory";
+import { ORDER_CHANNEL_LABEL, POLISH_LINE_LABEL } from "@/data/labels";
 import type {
     FillLevel,
     Forecast,
     Item,
     LocationId,
     MovementType,
-    OrderChannel,
     ParRule,
-    PolishLine,
     ReasonCode,
     StockLevel,
     StockMovement,
     StockStatus,
+    StockVariant,
     User,
+    VariantId,
     Vendor,
     VendorId,
 } from "@/data/types";
@@ -107,22 +109,7 @@ import { useViewer } from "@/utils/viewer";
 
 const DEFAULT_ITEM = "sup-igel-beauty-non-cleansing-gel-top-coat";
 
-const LINE_LABEL: Record<PolishLine, string> = {
-    opi: "OPI",
-    "opi-dip": "OPI dip",
-    dnd: "DND",
-    "dazzle-dry": "Dazzle Dry",
-    chisel: "Chisel",
-    "apres-gel-x": "Aprés Gel-X",
-};
 const RULE_LABEL: Record<ParRule, string> = { quantity: "Counted by quantity", level: "Tracked by fill level", paused: "Reorder paused", unset: "No par set" };
-const CHANNEL_LABEL: Record<OrderChannel, string> = {
-    "email-po": "Emailed purchase order",
-    api: "Sent by API",
-    portal: "Ordered on the vendor portal",
-    "in-store": "Bought in person",
-    internal: "Internal transfer",
-};
 const ABC_MEANING: Record<Item["abc"], string> = {
     A: "High spend. Counted weekly.",
     B: "Mid spend. Counted monthly.",
@@ -132,7 +119,8 @@ const ABC_MEANING: Record<Item["abc"], string> = {
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** Items sold as "Each" have no sensible plural, so they read as units. */
 const unitOf = (item: Item) => (item.unit.toLowerCase() === "each" ? "Unit" : item.unit);
-const vendorLine = (v: Vendor) => `${CHANNEL_LABEL[v.channel]}, about ${plural(v.leadTimeDays, "day")} to arrive${v.leadTimeIsEstimate ? " (estimate)" : ""}.`;
+const vendorLine = (v: Vendor) =>
+    `${ORDER_CHANNEL_LABEL[v.channel]}, about ${plural(v.leadTimeDays, "day")} to arrive${v.leadTimeIsEstimate ? " (estimate)" : ""}.`;
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 /** What an adjustment with this reason is in the ledger. */
@@ -345,6 +333,8 @@ interface Adjustment {
     delta: number;
     reason: ReasonCode;
     note?: string;
+    /** Set when one finish of a polish colour was adjusted: its new split. `onHand` is then that finish alone. */
+    variant?: Pick<StockVariant, "id" | "inUse" | "backstock">;
 }
 
 interface AdjustModalProps {
@@ -352,6 +342,8 @@ interface AdjustModalProps {
     onOpenChange: (open: boolean) => void;
     item: Item;
     level: StockLevel;
+    /** Adjust one finish of a polish colour. The number changed is its backstock; the open bottle is a switch. */
+    variant?: StockVariant;
     onSave: (adjustment: Adjustment) => void;
 }
 
@@ -359,48 +351,50 @@ interface AdjustModalProps {
  * Shopify's pattern: adjust by or set to, a required reason with no default, and the result shown
  * before anything is saved. Nothing is edited in place; saving writes one new ledger row.
  */
-const AdjustModal = ({ isOpen, onOpenChange, item, level, onSave }: AdjustModalProps) => {
+const AdjustModal = ({ isOpen, onOpenChange, item, level, variant, onSave }: AdjustModalProps) => {
     const unit = unitOf(item);
-    const byFill = Boolean(level.fillLevel);
+    const byFill = Boolean(level.fillLevel) && !variant;
+    // For a finish the number being changed is its backstock; otherwise it is everything on hand.
+    const start = variant ? variant.backstock : level.onHand;
+    const was = variant ? variant.onHand : level.onHand;
     const [mode, setMode] = useState<"adjust" | "set">("adjust");
     const [direction, setDirection] = useState<"remove" | "add">("remove");
     const [amount, setAmount] = useState(1);
-    const [target, setTarget] = useState(level.onHand);
+    const [target, setTarget] = useState(start);
+    const [inUse, setInUse] = useState(Boolean(variant?.inUse));
     const [fill, setFill] = useState<FillLevel | undefined>(level.fillLevel);
     const [reason, setReason] = useState<ReasonCode | "">("");
     const [note, setNote] = useState("");
 
-    const after = byFill
-        ? FILL_FRACTION[fill ?? "empty"]
-        : mode === "set"
-          ? target
-          : direction === "add"
-            ? level.onHand + amount
-            : Math.max(0, level.onHand - amount);
-    const delta = Math.round((after - level.onHand) * 100) / 100;
+    const counted = byFill ? FILL_FRACTION[fill ?? "empty"] : mode === "set" ? target : direction === "add" ? start + amount : Math.max(0, start - amount);
+    const after = variant ? counted + (inUse ? 1 : 0) : counted;
+    const delta = Math.round((after - was) * 100) / 100;
+    // Opening a spare moves a bottle from backstock to the wall: the total stays, the split changes.
+    const unchanged = variant ? counted === variant.backstock && (inUse ? 1 : 0) === variant.inUse : delta === 0;
     const sensitive = reason === "lost" || reason === "suspected-theft";
     const noteRequired = Math.abs(delta) >= 3 || sensitive;
-    const missing =
-        delta === 0
-            ? "Change the quantity to save."
-            : reason === ""
-              ? "Choose a reason to save."
-              : noteRequired && !note.trim()
-                ? "Add a note to save."
-                : undefined;
+    const missing = unchanged
+        ? "Change the quantity to save."
+        : reason === ""
+          ? "Choose a reason to save."
+          : noteRequired && !note.trim()
+            ? "Add a note to save."
+            : undefined;
 
-    const before = formatQty(level, unit);
+    const before = variant ? formatCount(variant.onHand, unit) : formatQty(level, unit);
     const afterText = byFill ? FILL_LABEL[fill ?? "empty"] : formatCount(after, unit);
 
     return (
         <ModalOverlay isOpen={isOpen} onOpenChange={onOpenChange} isDismissable>
             <Modal className="max-w-md">
-                <Dialog aria-label={`Adjust stock for ${item.name}`}>
+                <Dialog aria-label={`Adjust ${variant ? variant.label : "stock"} for ${item.name}`}>
                     <div className="flex flex-col gap-5 p-5 sm:p-6">
                         <div className="flex items-start gap-3">
                             <ItemThumb item={item} size="md" />
                             <div className="min-w-0">
-                                <h2 className="text-lg font-semibold text-primary">Adjust stock at {locationName(level.locationId)}</h2>
+                                <h2 className="text-lg font-semibold text-primary">
+                                    Adjust {variant ? variant.label : "stock"} at {locationName(level.locationId)}
+                                </h2>
                                 <p className="truncate text-sm text-tertiary">{item.name}</p>
                             </div>
                         </div>
@@ -412,6 +406,7 @@ const AdjustModal = ({ isOpen, onOpenChange, item, level, onSave }: AdjustModalP
                             </div>
                         ) : (
                             <div className="flex flex-col gap-3">
+                                {variant && <p className="text-sm font-medium text-secondary">Backstock, unopened</p>}
                                 <ButtonGroup
                                     aria-label="How to change the quantity"
                                     size="md"
@@ -438,21 +433,31 @@ const AdjustModal = ({ isOpen, onOpenChange, item, level, onSave }: AdjustModalP
                                         </ButtonGroup>
                                         <QuantityStepper
                                             className="flex-1"
-                                            label={direction === "add" ? "Quantity to add" : "Quantity to remove"}
+                                            label={`${variant ? "Backstock" : "Quantity"} to ${direction === "add" ? "add" : "remove"}`}
                                             value={amount}
                                             onChange={setAmount}
                                             min={0}
-                                            max={direction === "remove" ? level.onHand : undefined}
+                                            max={direction === "remove" ? start : undefined}
                                         />
                                     </div>
                                 ) : (
                                     <QuantityStepper
                                         className="w-full"
-                                        label="New quantity on hand"
+                                        label={variant ? "New backstock" : "New quantity on hand"}
                                         value={target}
                                         onChange={setTarget}
                                         min={0}
                                         unit={formatCount(target, unit).replace(/^[\d.]+\s/, "")}
+                                    />
+                                )}
+                                {variant && (
+                                    <Toggle
+                                        size="sm"
+                                        label="In use"
+                                        hint="One open on the polish wall."
+                                        isSelected={inUse}
+                                        onChange={setInUse}
+                                        className="min-h-11 items-center"
                                     />
                                 )}
                             </div>
@@ -463,12 +468,19 @@ const AdjustModal = ({ isOpen, onOpenChange, item, level, onSave }: AdjustModalP
                             className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-4 py-3 ring-1 ring-secondary ring-inset"
                         >
                             <div className="flex min-w-0 flex-col gap-0.5">
-                                <p className="text-xs font-medium text-tertiary">On hand after saving</p>
+                                <p className="text-xs font-medium text-tertiary">
+                                    {variant ? `${variant.label} on hand after saving` : "On hand after saving"}
+                                </p>
                                 <p className="flex flex-wrap items-center gap-x-2 text-md font-semibold text-primary tabular-nums">
                                     <span className="text-tertiary">{before}</span>
                                     <ArrowNarrowRight className="size-4 shrink-0 text-fg-quaternary" aria-label="becomes" />
                                     <span>{afterText}</span>
                                 </p>
+                                {variant && (
+                                    <p className="text-xs text-tertiary tabular-nums">
+                                        Backstock {variant.backstock} to {counted}, in use {variant.inUse} to {inUse ? 1 : 0}
+                                    </p>
+                                )}
                             </div>
                             {delta !== 0 && !byFill && (
                                 <Badge type="pill-color" size="md" color={delta > 0 ? "success" : "error"}>
@@ -522,7 +534,14 @@ const AdjustModal = ({ isOpen, onOpenChange, item, level, onSave }: AdjustModalP
                                     isDisabled={Boolean(missing)}
                                     onClick={() => {
                                         if (reason === "") return;
-                                        onSave({ onHand: after, fillLevel: byFill ? fill : undefined, delta, reason, note: note.trim() || undefined });
+                                        onSave({
+                                            onHand: after,
+                                            fillLevel: byFill ? fill : undefined,
+                                            delta,
+                                            reason,
+                                            note: note.trim() || undefined,
+                                            variant: variant ? { id: variant.id, inUse: inUse ? 1 : 0, backstock: counted } : undefined,
+                                        });
                                         onOpenChange(false);
                                     }}
                                 >
@@ -554,6 +573,9 @@ const HISTORY_FILTERS: { id: string; label: string; types: MovementType[] }[] = 
 ];
 
 const ORDERS_SHOWN = 5;
+
+const FINISH_LABEL: Record<VariantId, string> = { regular: "Regular", gel: "Gel", dip: "Dip" };
+const FINISH_ORDER: VariantId[] = ["regular", "gel", "dip"];
 
 /** One location's line for this item, with this session's edits applied. */
 interface PlaceView {
@@ -620,8 +642,8 @@ interface ItemDetailScreenProps {
     location?: LocationId;
     /** Section to open scrolled to. The ids are the old tab names. */
     initialTab?: DetailTab;
-    /** Open the adjust dialog straight away. Used by the story that documents it. */
-    adjusting?: boolean;
+    /** Open the adjust dialog straight away, or name a polish finish to open it on that one. Used by the stories that document it. */
+    adjusting?: boolean | VariantId;
     /** Who is looking. Defaults to the person using the app. */
     user?: User;
     /** Start with edits pending, so the save bar shows. Used by the story that documents it. */
@@ -699,7 +721,7 @@ interface ItemDetailProps {
     user: User;
     onStep: (id: string) => void;
     initialTab?: DetailTab;
-    adjusting: boolean;
+    adjusting: boolean | VariantId;
     initialEdits?: ItemDetailEdits;
     moreOpen: boolean;
 }
@@ -723,9 +745,14 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
     const [saved, setSaved] = useState(base);
     const [draft, setDraft] = useState(() => withEdits(base, location, initialEdits));
     // Stock adjustments, kept per location so switching salons does not lose them.
-    const [counts, setCounts] = useState<Partial<Record<LocationId, Pick<StockLevel, "onHand" | "fillLevel">>>>({});
+    const [counts, setCounts] = useState<Partial<Record<LocationId, Pick<StockLevel, "onHand" | "fillLevel" | "variants" | "inUse" | "backstock">>>>({});
     const [added, setAdded] = useState<Partial<Record<LocationId, StockMovement[]>>>({});
-    const [adjust, setAdjust] = useState({ loc: location, key: 0, open: adjusting && canEdit });
+    const [adjust, setAdjust] = useState<{ loc: LocationId; variantId?: VariantId; key: number; open: boolean }>({
+        loc: location,
+        variantId: typeof adjusting === "string" ? adjusting : undefined,
+        key: 0,
+        open: Boolean(adjusting) && canEdit,
+    });
     const [notice, setNotice] = useState<string>();
     const [onOrder, setOnOrder] = useState(false);
     const [section, setSection] = useState<DetailTab | undefined>(initialTab);
@@ -749,6 +776,11 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
     const baseLedger = useMemo(() => itemLedger(itemId, location), [itemId, location]);
     const siblings = useMemo(() => stockRows(location, item.kind).map((r) => r.item), [location, item.kind]);
     const categories = useMemo(() => [...new Set(items.filter((i) => i.kind === item.kind).map((i) => i.category))].sort(), [item.kind]);
+    // Dip powder is its own catalogue item. It points back at the lacquer colour with the same code.
+    const lacquer = useMemo(
+        () => (item.line === "opi-dip" && item.colorCode ? items.find((i) => i.line === "opi" && i.colorCode === item.colorCode) : undefined),
+        [item.line, item.colorCode],
+    );
 
     /** The stock line for a location with this session's adjustments and the given settings applied. */
     const levelWith = (loc: LocationId, s: Settings): StockLevel | undefined => {
@@ -844,27 +876,55 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
         document.getElementById(SECTION_ID[tab])?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
     };
 
-    const openAdjust = (loc: LocationId) => setAdjust((a) => ({ loc, key: a.key + 1, open: true }));
+    const openAdjust = (loc: LocationId, variantId?: VariantId) => setAdjust((a) => ({ loc, variantId, key: a.key + 1, open: true }));
     const adjustLevel = levelWith(adjust.loc, saved);
+    // A colour stocked by finish is adjusted one finish at a time, so the total never drifts from its parts.
+    const ownFinishes = adjustLevel?.variants?.filter((v) => !v.linkedItemId);
+    const adjustVariant = ownFinishes?.find((v) => v.id === adjust.variantId) ?? ownFinishes?.[0];
 
     const saveAdjustment = (a: Adjustment) => {
         const loc = adjust.loc;
+        const current = levelWith(loc, saved);
+        if (!current) return;
+        const next = a.variant;
+        const finish = next ? current.variants?.find((v) => v.id === next.id) : undefined;
+        const variants =
+            finish && next
+                ? current.variants?.map((v) => (v.id === finish.id ? { ...v, inUse: next.inUse, backstock: next.backstock, onHand: a.onHand } : v))
+                : current.variants;
+        // The colour's total is its own finishes. Dip powder is a separate item and is not part of it.
+        const own = finish ? variants?.filter((v) => !v.linkedItemId) : undefined;
+        const total = own ? own.reduce((n, v) => n + v.onHand, 0) : a.onHand;
+        const open = Math.min(current.inUse ?? 0, total);
+        const split = own
+            ? { inUse: own.reduce((n, v) => n + v.inUse, 0), backstock: own.reduce((n, v) => n + v.backstock, 0) }
+            : current.inUse !== undefined
+              ? { inUse: open, backstock: total - open }
+              : {};
+        const what =
+            finish && next
+                ? `${finish.label}: backstock ${finish.backstock} to ${next.backstock}${finish.inUse !== next.inUse ? `, in use ${finish.inUse} to ${next.inUse}` : ""}.`
+                : undefined;
         const movement: StockMovement = {
             id: `local-${loc}-${adjust.key}`,
             itemId,
             locationId: loc,
             type: movementType(a.reason, a.delta),
             delta: a.delta,
-            balance: a.onHand,
+            balance: total,
             reason: a.reason,
             userId: user.id,
             at: `${TODAY}T10:05:00Z`,
-            note: a.note,
+            note: [what, a.note].filter(Boolean).join(" ") || undefined,
             isSample: false,
         };
-        setCounts((c) => ({ ...c, [loc]: { onHand: a.onHand, fillLevel: a.fillLevel } }));
+        setCounts((c) => ({ ...c, [loc]: { onHand: total, fillLevel: a.fillLevel, variants, ...split } }));
         setAdded((m) => ({ ...m, [loc]: [movement, ...(m[loc] ?? [])] }));
-        setNotice(`Saved. On hand at ${locationName(loc)} is now ${formatQty({ onHand: a.onHand, fillLevel: a.fillLevel }, unit)}.`);
+        setNotice(
+            finish && own
+                ? `Saved. ${finish.label} at ${locationName(loc)} is now ${formatCount(a.onHand, unit)}. ${own.map((v) => v.label).join(" and ")} together: ${formatCount(total, unit)}.`
+                : `Saved. On hand at ${locationName(loc)} is now ${formatQty({ onHand: a.onHand, fillLevel: a.fillLevel }, unit)}.`,
+        );
     };
 
     const toggleOrder = () => {
@@ -955,7 +1015,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
 
     const subtitle =
         item.kind === "polish"
-            ? [item.brand ?? (item.line ? LINE_LABEL[item.line] : undefined), item.colorCode, item.colorFamily].filter(Boolean).join(" · ")
+            ? [item.brand ?? (item.line ? POLISH_LINE_LABEL[item.line] : undefined), item.colorCode, item.colorFamily].filter(Boolean).join(" · ")
             : (item.brand ?? "");
     const fieldSize = isDesktop ? "sm" : "lg";
     const mono = (value: string) => <span className="font-mono tabular-nums">{value}</span>;
@@ -1039,7 +1099,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
         return (
             <span className="inline-flex items-center justify-end gap-1.5">
                 {view.level.isSample && !counts[loc] && <SampleBadge />}
-                {canAdjustAt(loc) ? (
+                {canAdjustAt(loc) && !view.level.variants ? (
                     <button type="button" onClick={() => openAdjust(loc)} aria-label={`Adjust on hand at ${name}, now ${qty}`} className={quantityButton}>
                         {qty}
                     </button>
@@ -1066,6 +1126,43 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
 
     const isPolish = item.kind === "polish";
     const rows = locations.map((l) => ({ id: l.id, name: l.shortName, view: l.id === location ? here : viewWith(l.id, saved) }));
+
+    // Polish finishes. OPI colours are counted as regular and gel, with dip powder linked in from its own item.
+    const finishHome = rows.find((r) => r.view?.level.variants?.length);
+    const finishes = finishHome?.view?.level.variants;
+    const ownLabels = finishes?.filter((v) => !v.linkedItemId).map((v) => v.label) ?? [];
+    const finishDemand = finishHome ? variantDemand(itemId, finishHome.id) : {};
+    const orderedIn2026 = (v: StockVariant) => (v.linkedItemId && finishHome ? variantDemand(v.linkedItemId, finishHome.id)[v.id] : finishDemand[v.id]) ?? 0;
+    const finishUnit = (v: StockVariant) => (v.linkedItemId ? unitOf(getItem(v.linkedItemId) ?? shown) : unit);
+    const demandHere = variantDemand(itemId, location);
+    const demandSplit = FINISH_ORDER.filter((id) => (demandHere[id] ?? 0) > 0).map((id) => `${FINISH_LABEL[id]} ${demandHere[id]}`);
+    const showSplit = isPolish && !finishes;
+    // The colour reads as one product: swatch and finishes beside the title, the bottle photo in the details card.
+    const colourHeader = isPolish && Boolean(item.swatch) && Boolean(finishes || lacquer);
+
+    const finishStatus = (v: StockVariant) =>
+        v.onHand <= 0 ? <StockStatusBadge status="out" /> : <span className="text-xs whitespace-nowrap text-quaternary">No par</span>;
+    const finishOnHand = (v: StockVariant) => {
+        const qty = formatCount(v.onHand, finishUnit(v));
+        return finishHome && !v.linkedItemId && canAdjustAt(finishHome.id) ? (
+            <button
+                type="button"
+                onClick={() => openAdjust(finishHome.id, v.id)}
+                aria-label={`Adjust ${v.label} on hand at ${finishHome.name}, now ${qty}`}
+                className={quantityButton}
+            >
+                {qty}
+            </button>
+        ) : (
+            <span className="font-semibold whitespace-nowrap text-primary tabular-nums">{qty}</span>
+        );
+    };
+    const dipLink = (v: StockVariant) =>
+        v.linkedItemId ? (
+            <a href={ROUTES.item(v.linkedItemId)} className={cx(textLink, "text-xs max-lg:inline-flex max-lg:min-h-11 max-lg:items-center")}>
+                Dip powder is its own item
+            </a>
+        ) : null;
     const hasForecast = Boolean(forecast && forecast.confidence !== "none");
 
     return (
@@ -1090,6 +1187,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                 </div>
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        {colourHeader && <ItemThumb item={item} size="sm" />}
                         <h1 className="text-xl font-semibold text-primary lg:text-display-xs">{item.name}</h1>
                         {here && <StockStatusBadge status={here.status} size="md" />}
                         {shown.discontinued && (
@@ -1098,6 +1196,25 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                             </Badge>
                         )}
                     </div>
+                    {colourHeader && (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                            {finishes && (
+                                <ul aria-label="On hand by finish" className="flex flex-wrap items-center gap-1.5">
+                                    {finishes.map((v) => (
+                                        <li key={v.id}>
+                                            <Badge type="modern" color="gray" size="sm">{`${v.label} ${v.onHand}`}</Badge>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {lacquer && (
+                                <a href={ROUTES.item(lacquer.id)} className={cx(textLink, "text-sm max-lg:inline-flex max-lg:min-h-11 max-lg:items-center")}>
+                                    See {lacquer.name} lacquer and gel
+                                </a>
+                            )}
+                            <span className="text-quaternary">Swatch colour is approximate.</span>
+                        </div>
+                    )}
                     <SampleDataNote>
                         The item, shelf, par level and 2026 orders come from Meraki's spreadsheets. {level?.isSample ? "The on-hand number, " : "The "}count
                         dates, usage rows and unit cost are sample values. Edits and adjustments made here last for this session only.
@@ -1134,7 +1251,11 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                     {/* Details */}
                     <Card padded={false}>
                         <div className="flex items-start gap-4 p-4 lg:p-5">
-                            <ItemThumb item={shown} size="xl" className="max-lg:size-16 max-lg:rounded-lg" />
+                            <ItemThumb
+                                item={colourHeader && shown.imageUrl ? { ...shown, swatch: undefined } : shown}
+                                size="xl"
+                                className="max-lg:size-16 max-lg:rounded-lg"
+                            />
                             <div className="flex min-w-0 flex-1 flex-col gap-1">
                                 <h2 className="text-md font-semibold text-primary">{item.name}</h2>
                                 {subtitle && <p className="text-sm text-tertiary">{subtitle}</p>}
@@ -1164,6 +1285,114 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                 ) : null}
                             </SectionHeader>
 
+                            {finishes && finishHome && (
+                                <div className="flex flex-col gap-2">
+                                    <h3 className="text-xs font-medium text-tertiary">Finishes at {finishHome.name}</h3>
+                                    {isDesktop ? (
+                                        <div className="overflow-x-auto rounded-lg ring-1 ring-secondary ring-inset">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="bg-secondary text-xs text-tertiary">
+                                                        <th scope="col" className={cx(headCell, "text-left")}>
+                                                            Finish
+                                                        </th>
+                                                        <th scope="col" className={cx(headCell, "text-right")}>
+                                                            <Defined label="In use" definition="Open and out on the polish wall." />
+                                                        </th>
+                                                        <th scope="col" className={cx(headCell, "text-right")}>
+                                                            <Defined label="Backstock" definition="Unopened spares." />
+                                                        </th>
+                                                        <th scope="col" className={cx(headCell, "text-right")}>
+                                                            <Defined
+                                                                label="On hand"
+                                                                definition={
+                                                                    canAdjustAt(finishHome.id)
+                                                                        ? "In use plus backstock. Click a quantity to adjust that finish."
+                                                                        : "In use plus backstock."
+                                                                }
+                                                            />
+                                                        </th>
+                                                        <th scope="col" className={cx(headCell, "text-left")}>
+                                                            <Defined label="Box" definition="The storage box code written on the polish sheet." />
+                                                        </th>
+                                                        <th scope="col" className={cx(headCell, "text-right")}>
+                                                            <Defined
+                                                                label="Ordered in 2026"
+                                                                definition="Ordered in this finish across the 2026 orders. A line marked Regular & Gel counts once for each."
+                                                            />
+                                                        </th>
+                                                        <th scope="col" className={cx(headCell, "text-left")}>
+                                                            Status
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-secondary">
+                                                    {finishes.map((v) => (
+                                                        <tr key={v.id}>
+                                                            <th scope="row" className="px-3 py-2 text-left font-medium whitespace-nowrap text-primary">
+                                                                <span className="flex flex-col gap-0.5">
+                                                                    {v.label}
+                                                                    {dipLink(v)}
+                                                                </span>
+                                                            </th>
+                                                            <td className={numberCell}>{v.inUse}</td>
+                                                            <td className={numberCell}>{v.backstock}</td>
+                                                            <td className="px-3 py-1.5 text-right">{finishOnHand(v)}</td>
+                                                            <td className="px-3 py-2 whitespace-nowrap text-secondary">
+                                                                {v.box ?? <span className="text-quaternary">None</span>}
+                                                            </td>
+                                                            <td className={numberCell}>
+                                                                {orderedIn2026(v) > 0 ? orderedIn2026(v) : <span className="text-quaternary">0</span>}
+                                                            </td>
+                                                            <td className="px-3 py-2 whitespace-nowrap">{finishStatus(v)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <ul className="flex flex-col divide-y divide-secondary">
+                                            {finishes.map((v) => (
+                                                <li key={v.id} className="flex flex-col gap-2 py-3 first:pt-0">
+                                                    <div className="flex min-h-6 items-center justify-between gap-2">
+                                                        <p className="text-sm font-semibold text-primary">{v.label}</p>
+                                                        {finishStatus(v)}
+                                                    </div>
+                                                    <dl className="grid grid-cols-3 items-start gap-x-3 gap-y-3 text-sm">
+                                                        <div className="col-span-3 flex items-center justify-between gap-3">
+                                                            <dt className="text-tertiary">On hand</dt>
+                                                            <dd>{finishOnHand(v)}</dd>
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <dt className="text-xs text-tertiary">In use</dt>
+                                                            <dd className="font-medium text-primary tabular-nums">{v.inUse}</dd>
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <dt className="text-xs text-tertiary">Backstock</dt>
+                                                            <dd className="font-medium text-primary tabular-nums">{v.backstock}</dd>
+                                                        </div>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <dt className="text-xs text-tertiary">Box</dt>
+                                                            <dd className="font-medium text-primary">
+                                                                {v.box ?? <span className="font-normal text-quaternary">None</span>}
+                                                            </dd>
+                                                        </div>
+                                                        <div className="col-span-3 flex items-center justify-between gap-3">
+                                                            <dt className="text-xs text-tertiary">Ordered in 2026</dt>
+                                                            <dd className="font-medium text-primary tabular-nums">{orderedIn2026(v)}</dd>
+                                                        </div>
+                                                    </dl>
+                                                    {dipLink(v)}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <h3 className="mt-2 text-xs font-medium text-tertiary">
+                                        {ownLabels.length > 1 ? `${ownLabels.join(" and ")} together, by location` : "By location"}
+                                    </h3>
+                                </div>
+                            )}
+
                             {isDesktop ? (
                                 <div className="overflow-x-auto rounded-lg ring-1 ring-secondary ring-inset">
                                     <table className="w-full text-sm">
@@ -1176,13 +1405,15 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                                     <Defined
                                                         label="On hand"
                                                         definition={
-                                                            canEdit
-                                                                ? "What is on the shelf now, open containers included. Click a quantity to adjust it."
-                                                                : "What is on the shelf now, open containers included."
+                                                            finishes
+                                                                ? `${ownLabels.join(" and ")} together. Adjust a finish in the table above.`
+                                                                : canEdit
+                                                                  ? "What is on the shelf now, open containers included. Click a quantity to adjust it."
+                                                                  : "What is on the shelf now, open containers included."
                                                         }
                                                     />
                                                 </th>
-                                                {isPolish && (
+                                                {showSplit && (
                                                     <>
                                                         <th scope="col" className={cx(headCell, "text-right")}>
                                                             <Defined label="In use" definition="Open bottles out on the polish wall." />
@@ -1221,7 +1452,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                                     {view ? (
                                                         <>
                                                             <td className="px-3 py-1.5 text-right">{onHandCell(id, name, view)}</td>
-                                                            {isPolish && (
+                                                            {showSplit && (
                                                                 <>
                                                                     <td className={numberCell}>{view.level.inUse ?? "Not split"}</td>
                                                                     <td className={numberCell}>{view.level.backstock ?? "Not split"}</td>
@@ -1237,7 +1468,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                                             </td>
                                                         </>
                                                     ) : (
-                                                        <td colSpan={isPolish ? 7 : 5} className="px-3 py-2.5 text-tertiary">
+                                                        <td colSpan={showSplit ? 7 : 5} className="px-3 py-2.5 text-tertiary">
                                                             Not recorded here
                                                         </td>
                                                     )}
@@ -1266,7 +1497,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                                             <dt className="text-tertiary">On hand</dt>
                                                             <dd>{onHandCell(id, name, view)}</dd>
                                                         </div>
-                                                        {isPolish && (
+                                                        {showSplit && (
                                                             <>
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <dt className="text-xs text-tertiary">In use</dt>
@@ -1373,6 +1604,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                                         </span>
                                     </p>
                                 )}
+                                {demandSplit.length > 1 && <p className="text-sm text-tertiary">Ordered in 2026 by finish: {demandSplit.join(", ")}.</p>}
                             </Card>
 
                             {/* Orders */}
@@ -1749,6 +1981,7 @@ const ItemDetail = ({ item, location, onLocationChange, user, onStep, initialTab
                     onOpenChange={(open) => setAdjust((a) => ({ ...a, open }))}
                     item={shown}
                     level={adjustLevel}
+                    variant={adjustVariant}
                     onSave={saveAdjustment}
                 />
             )}
