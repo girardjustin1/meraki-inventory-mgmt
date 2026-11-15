@@ -31,14 +31,14 @@ const meta: Meta<typeof ListPagination> = {
 export default meta;
 type Story = StoryObj<typeof ListPagination>;
 
-/** 333 colours, 50 to a page: the size picker, the rows showing and the pages. */
+/** 333 colours, 50 to a page: the size picker, the rows showing, and a step back or forward. */
 export const Default: Story = {};
 
-/** Ten to a page gives many pages, so the middle ones fold into an ellipsis. */
+/** Ten to a page, deep into the list. */
 export const ManyPages: Story = { args: { pageSize: 10, page: 17 } };
 
-/** Everything fits on one page: the page buttons go, the size picker stays. */
+/** Everything fits on one page: both arrows are disabled, the size picker stays. */
 export const OnePage: Story = { args: { total: 36, noun: "supplies" } };
 
-/** On a phone: Previous, "Page 2 of 7" and Next, each a full-size tap target. */
+/** On a phone: the same single line, with full-size tap targets. */
 export const Mobile: Story = { args: { page: 2 }, globals: { viewport: { value: "mobile1", isRotated: false } } };

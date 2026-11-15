@@ -1,9 +1,8 @@
 "use client";
 
 import type { RefObject } from "react";
-import { ArrowLeft, ArrowRight } from "@untitledui/icons";
-import { Pagination } from "@/components/application/pagination/pagination-base";
-import { Button } from "@/components/base/buttons/button";
+import { ChevronLeft, ChevronRight } from "@untitledui/icons";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { NativeSelect } from "@/components/base/select/select-native";
 import { cx } from "@/utils/cx";
 
@@ -45,14 +44,11 @@ export interface ListPaginationProps {
     className?: string;
 }
 
-const itemClass = (isSelected: boolean) =>
-    cx(
-        "flex size-9 cursor-pointer items-center justify-center rounded-lg text-sm font-medium tabular-nums outline-focus-ring transition duration-100 ease-linear hover:bg-primary_hover hover:text-secondary focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2",
-        isSelected ? "bg-primary text-primary shadow-xs ring-1 ring-secondary ring-inset" : "text-tertiary",
-    );
-
 /**
- * The foot of a list: how many rows to show, which rows are showing, and the pages.
+ * The foot of a list, on one line: how many rows to show, which rows are showing, and a step back
+ * or forward.
+ *
+ *   Items per page  [50 v]    <  51-100 of 333  >
  *
  * The screen keeps `page` and `pageSize` in the URL (`?page=3&per=25`), so every page of a list has
  * an address that can be bookmarked or sent to someone. Renders nothing when the list fits within
@@ -68,86 +64,58 @@ export const ListPagination = ({ page, pageSize, total, noun = "rows", onPageCha
         requestAnimationFrame(() => scrollTo?.current?.scrollIntoView({ block: "start" }));
     };
 
-    const sizePicker = (
-        <label className="flex shrink-0 items-center gap-2 text-sm whitespace-nowrap text-tertiary">
-            Show
-            <NativeSelect
-                aria-label={`${noun} per page`}
-                size="sm"
-                value={String(pageSize)}
-                onChange={(event) => {
-                    const next = toPageSize(event.currentTarget.value);
-                    if (next) onPageSizeChange(next);
-                }}
-                options={PAGE_SIZES.map((size) => ({ label: String(size), value: String(size) }))}
-                selectClassName="max-lg:min-h-11 tabular-nums"
-                data-testid="page-size"
-            />
-            per page
-        </label>
-    );
-
-    const range = (
-        <p aria-live="polite" className="text-sm whitespace-nowrap text-tertiary tabular-nums" data-testid="page-range">
-            {from.toLocaleString("en-US")}–{to.toLocaleString("en-US")} of {total.toLocaleString("en-US")} {noun}
-        </p>
-    );
-
     return (
-        <Pagination.Root
-            page={current}
-            total={pages}
-            onPageChange={goTo}
-            className={cx("flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6", className)}
-        >
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 lg:justify-start">
-                {sizePicker}
-                {range}
-            </div>
+        <div className={cx("flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm sm:gap-x-6 lg:justify-end", className)}>
+            <label className="flex shrink-0 items-center gap-2 whitespace-nowrap text-tertiary">
+                {/* A phone has room for the short form; the select carries the full name for screen readers. */}
+                <span className="max-sm:hidden">Items per page</span>
+                <span aria-hidden="true" className="sm:hidden">
+                    Per page
+                </span>
+                <NativeSelect
+                    aria-label={`${noun} per page`}
+                    size="sm"
+                    value={String(pageSize)}
+                    onChange={(event) => {
+                        const next = toPageSize(event.currentTarget.value);
+                        if (next) onPageSizeChange(next);
+                    }}
+                    options={PAGE_SIZES.map((size) => ({ label: String(size), value: String(size) }))}
+                    // Room for the dropdown arrow, which sits over the right edge of the select.
+                    selectClassName="pr-8 max-lg:min-h-11 tabular-nums"
+                    data-testid="page-size"
+                />
+            </label>
 
-            {pages > 1 && (
-                <nav aria-label={`Pages of ${noun}`} className="flex items-center justify-between gap-2 lg:justify-end">
-                    <Pagination.PrevTrigger asChild>
-                        <Button color="secondary" size="sm" iconLeading={ArrowLeft} className="max-lg:min-h-11 max-lg:px-4" data-testid="page-prev">
-                            Previous
-                        </Button>
-                    </Pagination.PrevTrigger>
-
-                    <Pagination.Context>
-                        {({ pages: items, currentPage, total: pageCount }) => (
-                            <>
-                                <div className="hidden items-center gap-0.5 lg:flex">
-                                    {items.map((item, index) =>
-                                        item.type === "page" ? (
-                                            <Pagination.Item
-                                                key={index}
-                                                value={item.value}
-                                                isCurrent={item.isCurrent}
-                                                className={({ isSelected }) => itemClass(isSelected)}
-                                            >
-                                                {item.value}
-                                            </Pagination.Item>
-                                        ) : (
-                                            <Pagination.Ellipsis key={index} className="flex size-9 shrink-0 items-center justify-center text-quaternary">
-                                                &#8230;
-                                            </Pagination.Ellipsis>
-                                        ),
-                                    )}
-                                </div>
-                                <p className="text-sm whitespace-nowrap text-secondary tabular-nums lg:hidden">
-                                    Page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{pageCount}</span>
-                                </p>
-                            </>
-                        )}
-                    </Pagination.Context>
-
-                    <Pagination.NextTrigger asChild>
-                        <Button color="secondary" size="sm" iconTrailing={ArrowRight} className="max-lg:min-h-11 max-lg:px-4" data-testid="page-next">
-                            Next
-                        </Button>
-                    </Pagination.NextTrigger>
-                </nav>
-            )}
-        </Pagination.Root>
+            <nav aria-label={`Pages of ${noun}`} className="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
+                <ButtonUtility
+                    icon={ChevronLeft}
+                    color="tertiary"
+                    size="sm"
+                    tooltip="Previous page"
+                    aria-label="Previous page"
+                    isDisabled={current <= 1}
+                    onPress={() => goTo(current - 1)}
+                    className="max-lg:size-11"
+                    data-testid="page-prev"
+                />
+                <p aria-live="polite" className="min-w-0 px-1 font-medium whitespace-nowrap text-secondary tabular-nums" data-testid="page-range">
+                    {from.toLocaleString("en-US")}–{to.toLocaleString("en-US")} <span className="font-normal text-tertiary">of</span>{" "}
+                    {total.toLocaleString("en-US")}
+                    <span className="sr-only"> {noun}</span>
+                </p>
+                <ButtonUtility
+                    icon={ChevronRight}
+                    color="tertiary"
+                    size="sm"
+                    tooltip="Next page"
+                    aria-label="Next page"
+                    isDisabled={current >= pages}
+                    onPress={() => goTo(current + 1)}
+                    className="max-lg:size-11"
+                    data-testid="page-next"
+                />
+            </nav>
+        </div>
     );
 };
