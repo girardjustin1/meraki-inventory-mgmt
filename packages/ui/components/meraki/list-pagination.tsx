@@ -49,8 +49,8 @@ export interface ListPaginationProps {
  *
  *   Items per page  [50 v]    <  51-100 of 333  >
  *
- * One line on desktop, grouped at the right. On a phone the two parts stack, each across the full
- * width, so the arrows sit at the edges where thumbs reach.
+ * One line on desktop, grouped at the right. On a phone the two parts stack in the middle of the
+ * screen, the arrows first and the size picker under them, each only as wide as it needs to be.
  *
  * The screen keeps `page` and `pageSize` in the URL (`?page=3&per=25`), so every page of a list has
  * an address that can be bookmarked or sent to someone. Renders nothing when the list fits within
@@ -67,8 +67,8 @@ export const ListPagination = ({ page, pageSize, total, noun = "rows", onPageCha
     };
 
     return (
-        <div className={cx("flex flex-col gap-1 text-sm lg:flex-row lg:items-center lg:justify-end lg:gap-6", className)}>
-            <label className="flex shrink-0 items-center justify-between gap-2 whitespace-nowrap text-tertiary lg:justify-start">
+        <div className={cx("flex flex-col items-center gap-1 text-sm lg:flex-row lg:justify-end lg:gap-6", className)}>
+            <label className="order-2 flex shrink-0 items-center gap-2 whitespace-nowrap text-tertiary lg:order-1">
                 Items per page
                 <NativeSelect
                     aria-label={`${noun} per page`}
@@ -87,7 +87,7 @@ export const ListPagination = ({ page, pageSize, total, noun = "rows", onPageCha
                 />
             </label>
 
-            <nav aria-label={`Pages of ${noun}`} className="flex shrink-0 items-center justify-between gap-1 lg:justify-start">
+            <nav aria-label={`Pages of ${noun}`} className="order-1 flex shrink-0 items-center gap-1 lg:order-2">
                 <ButtonUtility
                     icon={ChevronLeft}
                     color="tertiary"

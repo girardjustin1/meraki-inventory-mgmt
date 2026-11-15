@@ -40,5 +40,5 @@ export const ManyPages: Story = { args: { pageSize: 10, page: 17 } };
 /** Everything fits on one page: both arrows are disabled, the size picker stays. */
 export const OnePage: Story = { args: { total: 36, noun: "supplies" } };
 
-/** On a phone the picker and the pager stack, each across the full width. */
+/** On a phone the arrows come first and the size picker sits under them, both centred. */
 export const Mobile: Story = { args: { page: 2 }, globals: { viewport: { value: "mobile1", isRotated: false } } };
