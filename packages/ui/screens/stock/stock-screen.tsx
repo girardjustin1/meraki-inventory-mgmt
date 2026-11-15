@@ -6,6 +6,8 @@ import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs
 import { Button } from "@/components/base/buttons/button";
 import { Dropdown } from "@/components/base/dropdown/dropdown";
 import { AppShell, PageContent, PageHeader, ROUTES, SampleDataNote } from "@/components/meraki/app-shell";
+import type { PageSize } from "@/components/meraki/list-pagination";
+import { DEFAULT_PAGE_SIZE } from "@/components/meraki/list-pagination";
 import { locationName, stockRows, summary } from "@/data/inventory";
 import type { LocationId, PolishLine, User, VariantId } from "@/data/types";
 import { can } from "@/engine/permissions";
@@ -35,6 +37,10 @@ interface StockScreenProps {
     initialLine?: PolishLine | "all";
     /** Open the polish wall on one finish: regular, gel or dip. */
     initialFinish?: VariantId;
+    /** Page of the list to open on, counting from 1 (deep link `?page=`). Applies to the tab the screen opens on. */
+    initialPage?: number;
+    /** Rows per page: 10, 25, 50 or 100 (deep link `?per=`). */
+    initialPageSize?: PageSize;
     /** Item ids selected on first render, which brings up the bulk bar. */
     initialSelected?: string[];
     /** Open the quantity editor on this item's row. */
@@ -55,6 +61,8 @@ export const StockScreen = ({
     initialQuery = "",
     initialLine = "opi",
     initialFinish,
+    initialPage = 1,
+    initialPageSize = DEFAULT_PAGE_SIZE,
     initialSelected,
     editingItemId,
     initialBulkEditing,
@@ -64,8 +72,19 @@ export const StockScreen = ({
     const user = userProp ?? viewer;
     const [location, setLocation] = useState<LocationId>(initialLocation);
     const [tab, setTab] = useState<TabId>(initialTab);
+    // One page size for every stock tab. The page number belongs to the list the link opened:
+    // another tab, or another salon, starts at its first page.
+    const [pageSize, setPageSize] = useState<PageSize>(initialPageSize);
+    const [movedOn, setMovedOn] = useState(false);
+    const startPage = movedOn ? 1 : initialPage;
     const [notice, setNotice] = useState<Notice | null>(null);
-    useUrlSync({ tab: tab === "supplies" ? null : tab, ...(tab === "polish" ? {} : { line: null, finish: null }) });
+    useUrlSync({
+        tab: tab === "supplies" ? null : tab,
+        per: pageSize === DEFAULT_PAGE_SIZE ? null : pageSize,
+        ...(tab === "polish" ? {} : { line: null, finish: null }),
+        // The tips matrix is one page.
+        ...(tab === "tips" ? { page: null } : {}),
+    });
     const s = summary(location);
     const tips = stockRows(location, "tips").length;
     const canOrder = can(user, "orders.create", location);
@@ -98,7 +117,15 @@ export const StockScreen = ({
     ];
 
     return (
-        <AppShell activeUrl={ROUTES.stock} location={location} onLocationChange={setLocation} user={userProp}>
+        <AppShell
+            activeUrl={ROUTES.stock}
+            location={location}
+            onLocationChange={(next) => {
+                setLocation(next);
+                setMovedOn(true);
+            }}
+            user={userProp}
+        >
             <PageContent className="gap-4 lg:gap-5">
                 <div className="flex flex-col gap-2.5">
                     <PageHeader
@@ -154,6 +181,7 @@ export const StockScreen = ({
                     selectedKey={tab}
                     onSelectionChange={(key) => {
                         setTab(key as TabId);
+                        setMovedOn(true);
                         setNotice(null);
                     }}
                     className="gap-4"
@@ -172,6 +200,9 @@ export const StockScreen = ({
                             initialStatus={initialStatus}
                             initialReorderOnly={initialReorderOnly}
                             initialQuery={initialQuery}
+                            initialPage={startPage}
+                            pageSize={pageSize}
+                            onPageSizeChange={setPageSize}
                             initialSelected={initialSelected}
                             editingItemId={editingItemId}
                             initialBulkEditing={initialBulkEditing}
@@ -188,6 +219,9 @@ export const StockScreen = ({
                             initialLine={initialLine}
                             initialFinish={initialFinish}
                             initialQuery={initialQuery}
+                            initialPage={startPage}
+                            pageSize={pageSize}
+                            onPageSizeChange={setPageSize}
                         />
                     </TabPanel>
                     <TabPanel id="tips">

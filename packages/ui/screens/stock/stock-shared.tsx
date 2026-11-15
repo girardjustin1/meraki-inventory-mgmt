@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { CheckCircle, Package, XClose } from "@untitledui/icons";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
-import { Button } from "@/components/base/buttons/button";
 import { Card } from "@/components/meraki/app-shell";
 import { cx } from "@/utils/cx";
 
@@ -74,12 +73,4 @@ export const NoticeBar = ({ notice, onDismiss }: { notice: Notice | null; onDism
                 <XClose className="size-4" aria-hidden="true" />
             </button>
         </div>
-    ) : null;
-
-/** "Show 60 more (85 left)" */
-export const ShowMore = ({ step, remaining, onPress }: { step: number; remaining: number; onPress: () => void }) =>
-    remaining > 0 ? (
-        <Button color="secondary" size="md" className="self-center max-lg:w-full" onClick={onPress}>
-            Show {Math.min(step, remaining)} more ({remaining.toLocaleString("en-US")} left)
-        </Button>
     ) : null;
