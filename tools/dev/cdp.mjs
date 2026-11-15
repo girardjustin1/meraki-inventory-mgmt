@@ -8,12 +8,21 @@
 //        {"eval":"document.title"} {"shot":"/abs/path.png"} {"waitFor":"css selector"}
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const [url, width = "1440", height = "900", stepsJson = "[]"] = process.argv.slice(2);
 const steps = JSON.parse(stepsJson);
-const port = 9300 + Math.floor(Math.random() * 500);
+// Ask the OS for a free port, so several runs at once never pick the same one.
+const port = await new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+        const { port: free } = probe.address();
+        probe.close(() => resolve(free));
+    });
+});
 const chrome = spawn(
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     ["--headless=new", "--disable-gpu", "--hide-scrollbars", `--remote-debugging-port=${port}`, `--user-data-dir=${mkdtempSync(join(tmpdir(), "cdp-"))}`, `--window-size=${width},${height}`, "about:blank"],

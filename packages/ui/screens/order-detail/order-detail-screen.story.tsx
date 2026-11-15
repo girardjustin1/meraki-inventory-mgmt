@@ -21,8 +21,17 @@ export const Mobile: Story = { globals: { viewport: { value: "mobile", isRotated
 /** The same order as the owner, who can approve it or send it back with a note. */
 export const OwnerApproval: Story = { args: { user: owner } };
 
-/** A draft: quantities can be stepped and lines removed before it is submitted. */
+/** A draft: quantities are typed in the table, lines removed, and items added from the search row under the lines. */
 export const Draft: Story = { args: { orderId: draft?.id } };
+
+/** The same draft with edits not saved yet: one quantity changed and one line removed raise the save bar. */
+export const Unsaved: Story = { args: { orderId: draft?.id, pending: { quantities: { l1: 5 }, removed: ["l3"] } } };
+
+/** Everything that is not the next step lives in one menu. */
+export const MoreActions: Story = { args: { orderId: draft?.id, moreOpen: true } };
+
+/** Adding to a draft: the picker opens on the order's vendor, with the lines already on it marked. */
+export const AddingItems: Story = { args: { orderId: draft?.id, pickerOpen: true } };
 
 /** March supply order from the 2026 backlog, every line received. */
 export const ReceivedImported: Story = { args: { orderId: receivedImported?.id } };

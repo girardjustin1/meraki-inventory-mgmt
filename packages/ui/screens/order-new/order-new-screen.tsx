@@ -2,14 +2,15 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle, FilterLines, Minus, Plus, SearchLg } from "@untitledui/icons";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle, FilterLines, Minus, Plus } from "@untitledui/icons";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
-import { Input } from "@/components/base/input/input";
 import { AppShell, Card, PageContent, PageHeader, ROUTES, SampleDataNote } from "@/components/meraki/app-shell";
 import { ItemThumb } from "@/components/meraki/item-thumb";
+import { ProductPicker, resolveSelection } from "@/components/meraki/product-picker";
+import type { PickerSelection } from "@/components/meraki/product-picker";
 import { OrderStatusBadge, SampleBadge } from "@/components/meraki/status-badges";
 import { TODAY, getForecast, getStock, items, locationName, purchaseOrders, reorderSuggestions, vendorById } from "@/data/inventory";
 import type { Forecast, Item, LocationId, PurchaseOrder, StockLevel, Vendor, VendorId } from "@/data/types";
@@ -173,10 +174,12 @@ export const OrderNewScreen = ({
         Object.fromEntries(Object.entries(quantities ?? {}).map(([id, qty]) => [id, { checked: true, qty }])),
     );
     const [addedIds, setAddedIds] = useState<string[]>([]);
+    /** Finishes ticked in the picker for an added colour, by item id: shown on the line so the order says which. */
+    const [addedFinishes, setAddedFinishes] = useState<Record<string, string[]>>({});
+    const [pickerOpen, setPickerOpen] = useState(false);
     const [vendorFilter, setVendorFilter] = useState<VendorId | "all">(initialVendor);
     const [urgentOnly, setUrgentOnly] = useState(initialUrgentOnly);
     useUrlSync({ vendor: vendorFilter === "all" ? undefined : vendorFilter, urgent: urgentOnly ? "1" : undefined });
-    const [query, setQuery] = useState("");
     const [created, setCreated] = useState(initialCreated);
     /** Vendors whose "already on an order" lines are expanded. */
     const [showPending, setShowPending] = useState<VendorId[]>([]);
@@ -185,6 +188,7 @@ export const OrderNewScreen = ({
         setLocationState(loc);
         setEdits({});
         setAddedIds([]);
+        setAddedFinishes({});
         setVendorFilter("all");
         setCreated(false);
         setShowPending([]);
@@ -216,7 +220,7 @@ export const OrderNewScreen = ({
             level: getStock(item.id, location),
             forecast: getForecast(item.id, location),
             suggested: 1,
-            reasons: ["Added by you"],
+            reasons: ["Added by you", ...(addedFinishes[item.id]?.length ? [addedFinishes[item.id]?.join(" and ") ?? ""] : [])],
             pending: pendingByItem.get(item.id),
             added: true,
         }));
@@ -250,15 +254,20 @@ export const OrderNewScreen = ({
         };
     });
 
-    // ---- add-item search -----------------------------------------------------------------
-    const q = query.trim().toLowerCase();
-    const inList = new Set(all.map((l) => l.item.id));
-    const matches =
-        q.length >= 2
-            ? items
-                  .filter((i) => !inList.has(i.id) && !i.discontinued && [i.name, i.brand, i.colorCode, i.sku].some((v) => v?.toLowerCase().includes(q)))
-                  .slice(0, 6)
-            : [];
+    // ---- add items ---------------------------------------------------------------------------
+    /** A dip powder is its own catalogue item; Regular and Gel of one colour are one line that names both finishes. */
+    const addPicks = (picks: PickerSelection[]) => {
+        const ids: string[] = [];
+        const finishes: Record<string, string[]> = {};
+        for (const pick of picks) {
+            const resolved = resolveSelection(pick, location);
+            if (!resolved) continue;
+            if (!ids.includes(resolved.item.id)) ids.push(resolved.item.id);
+            if (resolved.variantLabel) finishes[resolved.item.id] = [...(finishes[resolved.item.id] ?? []), resolved.variantLabel];
+        }
+        setAddedIds((prev) => [...ids.filter((id) => !prev.includes(id)), ...prev]);
+        setAddedFinishes((prev) => ({ ...prev, ...finishes }));
+    };
 
     const createLabel = `Create ${drafts.length} draft order${drafts.length === 1 ? "" : "s"}`;
     const header = (
@@ -278,6 +287,20 @@ export const OrderNewScreen = ({
                 </>
             }
             description={`What ${locationName(location)} needs for the ${formatMonth(cycle)} cycle, grouped by vendor. Untick or change anything, then create one draft per vendor.`}
+            actions={
+                created ? undefined : (
+                    <Button
+                        color="secondary"
+                        size="md"
+                        iconLeading={Plus}
+                        className="max-lg:min-h-11"
+                        data-testid="add-items"
+                        onClick={() => setPickerOpen(true)}
+                    >
+                        Add items
+                    </Button>
+                )
+            }
         />
     );
 
@@ -350,6 +373,7 @@ export const OrderNewScreen = ({
                                     setCreated(false);
                                     setEdits({});
                                     setAddedIds([]);
+                                    setAddedFinishes({});
                                 }}
                             >
                                 Build another order
@@ -402,50 +426,6 @@ export const OrderNewScreen = ({
 
                 <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start xl:gap-6">
                     <div className="flex min-w-0 flex-col gap-4">
-                        {/* Add an item that was not suggested */}
-                        <Card className="flex flex-col gap-3">
-                            <Input
-                                aria-label="Add an item that is not on the list"
-                                icon={SearchLg}
-                                size="md"
-                                placeholder="Add an item: search supplies, polish by name or colour code"
-                                value={query}
-                                onChange={setQuery}
-                            />
-                            {q.length >= 2 &&
-                                (matches.length ? (
-                                    <ul className="divide-y divide-secondary rounded-lg ring-1 ring-secondary ring-inset">
-                                        {matches.map((i) => (
-                                            <li key={i.id} className="flex items-center gap-3 px-3 py-2">
-                                                <ItemThumb item={i} size="sm" />
-                                                <span className="flex min-w-0 flex-1 flex-col">
-                                                    <span className="truncate text-sm font-medium text-primary">{i.name}</span>
-                                                    <span className="truncate text-xs text-tertiary">
-                                                        {[i.colorCode, i.category, vendorById(i.vendorId).name].filter(Boolean).join(" · ")}
-                                                    </span>
-                                                </span>
-                                                <Button
-                                                    color="secondary"
-                                                    size="sm"
-                                                    className="max-lg:min-h-11"
-                                                    iconLeading={Plus}
-                                                    onClick={() => {
-                                                        setAddedIds((prev) => [i.id, ...prev]);
-                                                        setQuery("");
-                                                    }}
-                                                >
-                                                    Add
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-tertiary">
-                                        Nothing in the catalogue matches &ldquo;{query.trim()}&rdquo;, or it is already on the list.
-                                    </p>
-                                ))}
-                        </Card>
-
                         {/* Filters */}
                         <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 md:-mx-8 md:px-8 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0">
                             <FilterLines className="hidden size-4 shrink-0 text-fg-quaternary lg:block" aria-hidden="true" />
@@ -475,7 +455,7 @@ export const OrderNewScreen = ({
                                         <EmptyState.Description>
                                             {urgentOnly
                                                 ? `No item here has under ${URGENT_DAYS} days of cover.`
-                                                : "No item is below its reorder point. Search above to add something anyway."}
+                                                : "No item is below its reorder point. Use Add items to order something anyway."}
                                         </EmptyState.Description>
                                     </EmptyState.Content>
                                     {(urgentOnly || vendorFilter !== "all") && (
@@ -839,6 +819,16 @@ export const OrderNewScreen = ({
                     </Button>
                 </div>
             </PageContent>
+
+            <ProductPicker
+                location={location}
+                isOpen={pickerOpen}
+                onOpenChange={setPickerOpen}
+                onAdd={addPicks}
+                excludeIds={all.map((l) => l.item.id)}
+                title="Add items to this order"
+                confirmLabel="Add to order"
+            />
         </AppShell>
     );
 };
