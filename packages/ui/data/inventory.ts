@@ -1870,6 +1870,10 @@ export const summary = (loc: LocationId) => {
         highFlags: openFlags(loc).filter((f) => f.severity === "high").length,
         openOrders: openOrders.length,
         openOrderLines: openOrders.reduce((n, po) => n + po.lines.filter((l) => l.qtyOrdered > 0 && l.qtyReceived === 0).length, 0),
+        // Open lines on orders older than the backlog threshold: probably arrived and never logged.
+        unconfirmedOrderLines: openOrders
+            .filter((po) => daysBetween(po.sentAt ?? po.createdAt, TODAY) > INCOMING_MAX_AGE_DAYS)
+            .reduce((n, po) => n + po.lines.filter((l) => l.qtyOrdered > 0 && l.qtyReceived === 0).length, 0),
         awaitingApproval: purchaseOrders.filter((po) => po.locationId === loc && po.status === "awaiting-approval").length,
         countsDue: countSessions.filter(
             (c) => c.locationId === loc && (c.status === "scheduled" || c.status === "in-progress") && daysBetween(TODAY, c.dueAt) <= 3,
