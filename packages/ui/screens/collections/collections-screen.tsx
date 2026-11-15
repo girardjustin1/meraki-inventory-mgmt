@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, ChevronSelectorVertical, Download01, Folder, Plus, SearchLg, Upload01, XClose } from "@untitledui/icons";
-import { Button as AriaButton, Radio as AriaRadio, RadioGroup as AriaRadioGroup } from "react-aria-components";
+import { ChevronDown, ChevronRight, Download01, Folder, Plus, Upload01, XClose } from "@untitledui/icons";
+import { Radio as AriaRadio, RadioGroup as AriaRadioGroup } from "react-aria-components";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -24,6 +24,7 @@ import {
     PURPOSE_ORDER,
     summariseRules,
 } from "@/components/meraki/collection-meta";
+import { DataTableToolbar } from "@/components/meraki/data-table-toolbar";
 import { TODAY, locationName, collections as seedCollections, stockRows } from "@/data/inventory";
 import type { Collection, CollectionPurpose, LocationId, User } from "@/data/types";
 import { resolveCollection } from "@/engine/collections";
@@ -368,89 +369,15 @@ export const CollectionsScreen = ({
 
                     {notice && <InlineNotice onDismiss={() => setNotice(null)}>{notice}</InlineNotice>}
 
-                    {/* One control bar: the view picker and the search. */}
-                    <div
-                        className="flex items-center gap-1 rounded-xl bg-primary p-1 shadow-xs ring-1 ring-secondary ring-inset has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand"
-                        data-testid="control-bar"
-                    >
-                        {/* Phone: the views fold into one picker so the search keeps its room. */}
-                        <div className="lg:hidden">
-                            <Dropdown.Root>
-                                <AriaButton
-                                    aria-label={`View: ${currentView.label}`}
-                                    data-testid="view-picker"
-                                    className="flex min-h-11 cursor-pointer items-center gap-1 rounded-lg pr-2 pl-3 text-sm font-semibold whitespace-nowrap text-secondary outline-focus-ring transition duration-100 ease-linear hover:bg-primary_hover focus-visible:outline-2"
-                                >
-                                    {currentView.label}
-                                    <span className="font-medium text-quaternary tabular-nums">{counts[view]}</span>
-                                    <ChevronSelectorVertical className="size-4 text-fg-quaternary" aria-hidden="true" />
-                                </AriaButton>
-                                <Dropdown.Popover placement="bottom left" className="w-56">
-                                    <Dropdown.Menu
-                                        aria-label="View"
-                                        selectionMode="single"
-                                        selectedKeys={[view]}
-                                        onSelectionChange={(keys) => {
-                                            const next = [...keys][0];
-                                            if (typeof next === "string") setView(next as CollectionsView);
-                                        }}
-                                    >
-                                        {VIEWS.map((v) => (
-                                            <Dropdown.Item key={v.id} id={v.id} addon={String(counts[v.id])} textValue={v.label}>
-                                                {v.label}
-                                            </Dropdown.Item>
-                                        ))}
-                                    </Dropdown.Menu>
-                                </Dropdown.Popover>
-                            </Dropdown.Root>
-                        </div>
-
-                        <div role="group" aria-label="View" className="hidden items-center gap-0.5 lg:flex">
-                            {VIEWS.map((v) => (
-                                <button
-                                    key={v.id}
-                                    type="button"
-                                    aria-pressed={view === v.id}
-                                    data-testid={`view-${v.id}`}
-                                    onClick={() => setView(v.id)}
-                                    className={cx(
-                                        "flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2",
-                                        view === v.id ? "bg-secondary text-primary" : "text-tertiary hover:bg-primary_hover hover:text-secondary",
-                                    )}
-                                >
-                                    {v.label}
-                                    <span className={cx("text-xs font-medium tabular-nums", view === v.id ? "text-tertiary" : "text-quaternary")}>
-                                        {counts[v.id]}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <span className="mx-1 h-6 w-px shrink-0 bg-border-secondary" aria-hidden="true" />
-
-                        <label className="flex min-w-0 flex-1 items-center gap-2 pr-1 pl-1.5">
-                            <SearchLg className="size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
-                            <input
-                                type="search"
-                                aria-label="Search collections"
-                                placeholder="Search collections"
-                                value={query}
-                                onChange={(event) => setQuery(event.currentTarget.value)}
-                                data-testid="collections-search"
-                                className="min-h-11 w-full min-w-0 bg-transparent text-md text-primary outline-hidden placeholder:text-placeholder lg:min-h-9 lg:text-sm [&::-webkit-search-cancel-button]:hidden"
-                            />
-                        </label>
-                        {query && (
-                            <button
-                                type="button"
-                                aria-label="Clear search"
-                                onClick={() => setQuery("")}
-                                className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring transition duration-100 ease-linear hover:bg-primary_hover focus-visible:outline-2 lg:size-9"
-                            >
-                                <XClose className="size-4" aria-hidden="true" />
-                            </button>
-                        )}
-                    </div>
+                    <DataTableToolbar
+                        label="collections"
+                        views={VIEWS.map((v) => ({ id: v.id, label: v.label, count: counts[v.id] }))}
+                        view={view}
+                        onViewChange={(id) => setView(id as CollectionsView)}
+                        query={query}
+                        onQueryChange={setQuery}
+                        searchPlaceholder="Search collections"
+                    />
 
                     {shown.length === 0 ? (
                         <div
