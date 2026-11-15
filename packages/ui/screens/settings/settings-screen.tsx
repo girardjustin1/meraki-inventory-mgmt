@@ -35,6 +35,7 @@ import { Toggle } from "@/components/base/toggle/toggle";
 import { AppShell, Card, CardHeader, PageContent, PageHeader, ROUTES, SampleDataNote } from "@/components/meraki/app-shell";
 import { RealDataBadge, RoleBadge, SampleBadge } from "@/components/meraki/status-badges";
 import { TODAY, getDigest, getItem, items, locations, notificationRules, purchaseOrders, vendors as seedVendors, stock } from "@/data/inventory";
+import { ORDER_CHANNEL_LABEL } from "@/data/labels";
 import type { LocationId, NotificationRule, OrderChannel, Vendor } from "@/data/types";
 import { formatDate } from "@/engine/dates";
 import { FLAG_THRESHOLDS } from "@/engine/flags";
@@ -274,14 +275,6 @@ const FlagRulesPanel = () => {
 
 // ------------------------------------------------------------------------------------ vendors
 
-const CHANNEL_LABEL: Record<OrderChannel, string> = {
-    "email-po": "Email purchase order",
-    api: "Sent by API",
-    portal: "Vendor portal",
-    "in-store": "Bought in person",
-    internal: "Internal transfer",
-};
-
 const measuredLead = new Map(getDigest("monthly", "all").vendorPerformance.map((v) => [v.vendor, v.avgLeadDays]));
 
 const LeadTime = ({ vendor }: { vendor: Vendor }) => {
@@ -316,7 +309,7 @@ const VendorDrawer = ({ vendor, onClose, onSave }: { vendor: Vendor; onClose: ()
                 <Input label="Name" value={draft.name} onChange={(name) => setDraft((d) => ({ ...d, name }))} />
                 <Select
                     label="How orders are placed"
-                    items={(Object.keys(CHANNEL_LABEL) as OrderChannel[]).map((id) => ({ id, label: CHANNEL_LABEL[id] }))}
+                    items={(Object.keys(ORDER_CHANNEL_LABEL) as OrderChannel[]).map((id) => ({ id, label: ORDER_CHANNEL_LABEL[id] }))}
                     value={draft.channel}
                     onChange={(key) => {
                         if (key) setDraft((d) => ({ ...d, channel: key as OrderChannel }));
@@ -400,7 +393,7 @@ const VendorsPanel = () => {
                                     <p className="text-xs text-tertiary">{itemCount(v.id).toLocaleString()} items</p>
                                     {v.note && <p className="mt-1 text-sm text-tertiary">{v.note}</p>}
                                 </td>
-                                <td className="px-4 py-3 align-top text-sm whitespace-nowrap text-secondary">{CHANNEL_LABEL[v.channel]}</td>
+                                <td className="px-4 py-3 align-top text-sm whitespace-nowrap text-secondary">{ORDER_CHANNEL_LABEL[v.channel]}</td>
                                 <td className="px-4 py-3 align-top">
                                     <LeadTime vendor={v} />
                                 </td>
@@ -420,7 +413,7 @@ const VendorsPanel = () => {
                                 <div className="min-w-0">
                                     <p className="text-sm font-semibold text-primary">{v.name}</p>
                                     <p className="text-xs text-tertiary">
-                                        {CHANNEL_LABEL[v.channel]} · {itemCount(v.id).toLocaleString()} items
+                                        {ORDER_CHANNEL_LABEL[v.channel]} · {itemCount(v.id).toLocaleString()} items
                                     </p>
                                 </div>
                                 <Button

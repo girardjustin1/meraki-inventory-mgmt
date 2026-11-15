@@ -24,6 +24,7 @@ import { ItemThumb } from "@/components/meraki/item-thumb";
 import { SampleBadge } from "@/components/meraki/status-badges";
 import { getItem, getStock, stockRows, vendorById } from "@/data/inventory";
 import type { StockRow } from "@/data/inventory";
+import { POLISH_LINE_LABEL } from "@/data/labels";
 import type { Item, LocationId, PolishLine, StockStatus, StockVariant, VariantId, VendorId } from "@/data/types";
 import type { SearchDoc } from "@/engine/search";
 import { scoreDoc } from "@/engine/search";
@@ -104,15 +105,6 @@ const FILTERS: { id: FilterId; label: string }[] = [
     { id: "line", label: "Polish line" },
 ];
 
-const LINE_LABEL: Record<PolishLine, string> = {
-    opi: "OPI",
-    "opi-dip": "OPI dip",
-    dnd: "DND",
-    "dazzle-dry": "Dazzle Dry",
-    chisel: "Chisel",
-    "apres-gel-x": "Aprés Gel-X",
-};
-
 /** With nothing typed: supplies before the 1,600 polish colours, and within each what most needs ordering first. */
 const STATUS_RANK: Record<StockStatus, number> = { out: 0, low: 1, ok: 2, over: 2, unknown: 2, paused: 3 };
 const KIND_RANK: Record<Item["kind"], number> = { supply: 0, tips: 1, polish: 2 };
@@ -122,7 +114,7 @@ const filterValue = (row: StockRow, id: FilterId): string | undefined =>
     id === "vendor" ? row.vendor.id : id === "category" ? row.item.category : id === "area" ? row.level.area : row.item.line;
 
 const filterValueLabel = (id: FilterId, value: string) =>
-    id === "vendor" ? vendorById(value as VendorId).name : id === "line" ? (LINE_LABEL[value as PolishLine] ?? value) : value;
+    id === "vendor" ? vendorById(value as VendorId).name : id === "line" ? (POLISH_LINE_LABEL[value as PolishLine] ?? value) : value;
 
 const docFor = ({ item, vendor, level }: StockRow, by: SearchBy): SearchDoc => {
     const base = { id: item.id, kind: "supply" as const, href: "" };
@@ -134,7 +126,7 @@ const docFor = ({ item, vendor, level }: StockRow, by: SearchBy): SearchDoc => {
         ...base,
         title: item.name,
         subtitle: [item.brand, item.category].filter(Boolean).join(" "),
-        keywords: [vendor.name, level.area, level.shelf, item.line ? LINE_LABEL[item.line] : ""].join(" "),
+        keywords: [vendor.name, level.area, level.shelf, item.line ? POLISH_LINE_LABEL[item.line] : ""].join(" "),
         codes: [item.colorCode, item.sku, item.upc].filter((c): c is string => Boolean(c)),
     };
 };
@@ -539,7 +531,9 @@ const PickerBody = ({
                                             {code}
                                         </span>
                                     )}
-                                    {r.item.line && <span className="hidden shrink-0 truncate text-xs text-tertiary sm:inline">{LINE_LABEL[r.item.line]}</span>}
+                                    {r.item.line && (
+                                        <span className="hidden shrink-0 truncate text-xs text-tertiary sm:inline">{POLISH_LINE_LABEL[r.item.line]}</span>
+                                    )}
                                 </span>
                             );
 

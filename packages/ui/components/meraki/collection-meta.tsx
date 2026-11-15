@@ -5,6 +5,7 @@ import { CheckCircle, XClose } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Tooltip, TooltipTrigger } from "@/components/base/tooltip/tooltip";
 import { vendors } from "@/data/inventory";
+import { POLISH_LINE_LABEL } from "@/data/labels";
 import type { Collection, CollectionPurpose, CollectionRule, ItemKind, PolishLine, StockStatus } from "@/data/types";
 import { describeRule } from "@/engine/collections";
 import { STATUS_LABEL } from "@/engine/stock";
@@ -42,15 +43,6 @@ export const CollectionPurposeChip = ({ purpose, size = "sm" }: { purpose: Colle
     </Badge>
 );
 
-const LINE_LABEL: Record<PolishLine, string> = {
-    opi: "OPI",
-    "opi-dip": "OPI dip",
-    dnd: "DND",
-    "dazzle-dry": "Dazzle Dry",
-    chisel: "Chisel",
-    "apres-gel-x": "Aprés Gel-X",
-};
-
 const KIND_OF_ITEM_LABEL: Record<ItemKind, string> = { supply: "Supply", polish: "Polish", tips: "Gel-X tips" };
 
 /** The readable form of a rule value: a vendor's name for its id, "Low" for "low", and so on. */
@@ -59,7 +51,7 @@ export const ruleValueLabel = (field: CollectionRule["field"], value: string): s
         case "vendor":
             return vendors.find((v) => v.id === value)?.name ?? value;
         case "line":
-            return LINE_LABEL[value as PolishLine] ?? value;
+            return POLISH_LINE_LABEL[value as PolishLine] ?? value;
         case "kind":
             return KIND_OF_ITEM_LABEL[value as ItemKind] ?? value;
         case "status":

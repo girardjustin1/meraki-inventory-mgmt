@@ -42,7 +42,8 @@ import { SENT_VIA_LABEL, SendMethodPanel } from "@/components/meraki/send-method
 import { bestSendOption } from "@/components/meraki/send-option-list";
 import { OrderStatusBadge, SampleBadge } from "@/components/meraki/status-badges";
 import { CURRENT_USER, TODAY, flags, getItem, getStock, locationName, purchaseOrders, userById, users, vendorById } from "@/data/inventory";
-import type { OrderChannel, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, User, VariantId } from "@/data/types";
+import { ORDER_CHANNEL_LABEL } from "@/data/labels";
+import type { PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, User, VariantId } from "@/data/types";
 import { addDays, formatDate, formatMonth } from "@/engine/dates";
 import type { SendMethod } from "@/engine/order-send";
 import { ordersToSend } from "@/engine/order-send";
@@ -54,14 +55,6 @@ const LINE_PAGE = 50;
 const KIND_LABEL: Record<PurchaseOrder["kind"], string> = { supply: "supplies", polish: "polish" };
 const day = (iso: string) => formatDate(iso.slice(0, 10), iso.slice(0, 4) !== TODAY.slice(0, 4));
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-const CHANNEL_LABEL: Record<OrderChannel, string> = {
-    "email-po": "Emailed purchase order",
-    portal: "Vendor portal",
-    "in-store": "Bought in person",
-    api: "Amazon Business API",
-    internal: "Internal transfer",
-};
 
 const isSentStatus = (s: PurchaseOrderStatus) => s === "sent" || s === "partially-received" || s === "received";
 
@@ -854,7 +847,7 @@ const OrderDetail = ({
 
                         <RailSection title="Vendor">
                             <dl className="flex flex-col gap-2">
-                                <Row label="Order method">{CHANNEL_LABEL[vendor.channel]}</Row>
+                                <Row label="Order method">{ORDER_CHANNEL_LABEL[vendor.channel]}</Row>
                                 <Row label="Lead time">
                                     <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
                                         About {plural(vendor.leadTimeDays, "day")} {estimate}

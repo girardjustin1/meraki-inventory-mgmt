@@ -124,7 +124,7 @@ export const LedgerList = ({ movements, unit, fillLevel, pageSize = 12, emptyMes
                                 </p>
                                 {m.note && <p className="mt-0.5 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary">{m.note}</p>}
                                 {m.purchaseOrderId && (
-                                    <Button href={ROUTES.order(m.purchaseOrderId)} color="link-color" size="sm" className="self-start">
+                                    <Button href={ROUTES.order(m.purchaseOrderId)} color="link-color" size="sm" className="self-start max-lg:min-h-11">
                                         View order
                                     </Button>
                                 )}
